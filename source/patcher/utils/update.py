@@ -27,41 +27,41 @@ def set_last_update_result(result):
 
 
 def print_network_error_warning():
-    """Print a noticeable warning and VPN recommendation when check_for_updates fails interactively."""
-    warn("Could not check for updates (network error).")
+    """当交互式检查更新失败时，打印醒目的警告和 VPN 建议。"""
+    warn("无法检查更新（网络错误）。")
     vpn_link = link(GOIDA_VPN_URL, "goida-vpn-configs", COLOR_CYAN, COLOR_UNDERLINE)
-    hint("Recommendation: Turn on VPN to connect to GitHub and check for updates.")
-    hint(f"Free VPN configs: {vpn_link} (auto-updated V2Ray/VLESS/Hysteria configs by AvenCores)")
+    hint("建议：开启 VPN 以连接 GitHub 并检查更新。")
+    hint(f"免费 VPN 配置：{vpn_link}（AvenCores 自动更新的 V2Ray/VLESS/Hysteria 配置）")
 
 
 def print_network_error_banner():
-    """Print a framed warning banner in the main menu when update check failed due to network error."""
+    """当更新检查因网络错误失败时，在主菜单中打印带边框的警告横幅。"""
     vpn_link = link(GOIDA_VPN_URL, "goida-vpn-configs", COLOR_CYAN, COLOR_UNDERLINE)
     print(f"  {_frame_border('╔', '═', '╗', COLOR_YELLOW)}")
-    print(f"  {_frame_row(color('WARNING: Update check failed (network error)', COLOR_YELLOW, COLOR_BOLD), accent=COLOR_YELLOW)}")
-    print(f"  {_frame_row(color('Turn on VPN to check for updates on GitHub', COLOR_CYAN, COLOR_BOLD), accent=COLOR_YELLOW)}")
-    print(f"  {_frame_row(color(f'Free VPN configs: {vpn_link}', COLOR_CYAN), accent=COLOR_YELLOW)}")
+    print(f"  {_frame_row(color('警告：检查更新失败（网络错误）', COLOR_YELLOW, COLOR_BOLD), accent=COLOR_YELLOW)}")
+    print(f"  {_frame_row(color('请开启 VPN 以在 GitHub 上检查更新', COLOR_CYAN, COLOR_BOLD), accent=COLOR_YELLOW)}")
+    print(f"  {_frame_row(color(f'免费 VPN 配置：{vpn_link}', COLOR_CYAN), accent=COLOR_YELLOW)}")
     print(f"  {_frame_border('╚', '═', '╝', COLOR_YELLOW)}")
     print()
 
 
 
 def print_update_status_notice():
-    """Prints update notice, up-to-date status, or network error warning banner in the main menu."""
+    """在主菜单中打印更新提示、已是最新状态，或网络错误警告横幅。"""
     if LAST_UPDATE_RESULT == "network_error":
         print_network_error_banner()
     elif isinstance(LAST_UPDATE_RESULT, tuple) and LAST_UPDATE_RESULT[0] == "update_available":
         _, tag, url = LAST_UPDATE_RESULT
-        info(f"New version available: {color(tag, COLOR_GREEN, COLOR_BOLD)} (current: {color(VERSION, COLOR_YELLOW)})")
-        hint(f"Download: {color(url, COLOR_CYAN)}")
+        info(f"发现新版本：{color(tag, COLOR_GREEN, COLOR_BOLD)}（当前：{color(VERSION, COLOR_YELLOW)}）")
+        hint(f"下载地址：{color(url, COLOR_CYAN)}")
         print()
     elif LAST_UPDATE_RESULT == "up_to_date":
-        ok(f"Patcher is up to date (v{VERSION})")
+        ok(f"补丁工具已是最新版本（v{VERSION}）")
         print()
 
 
 def _parse_version(v):
-    """Parse a version string like '1.2.6' into a tuple of ints."""
+    """将形如 '1.2.6' 的版本字符串解析为整数元组。"""
     v = v.strip().lstrip("vV")
     parts = []
     for p in v.split("."):
@@ -73,7 +73,7 @@ def _parse_version(v):
 
 
 def _fetch_latest_release(timeout=5):
-    """Fetch latest release info from GitHub API. Returns (tag, html_url) or (None, None)."""
+    """通过 GitHub API 获取最新发布信息。返回 (tag, html_url) 或 (None, None)。"""
     req = urllib.request.Request(API_URL, headers={
         "Accept": "application/vnd.github.v3+json",
         "User-Agent": f"OpenAGPatcher/{VERSION}",
@@ -89,10 +89,10 @@ def _fetch_latest_release(timeout=5):
 
 
 def check_for_updates(silent=True, timeout=5):
-    """Check for updates. Returns True if an update is available.
+    """检查更新。若有可用更新则返回 True。
 
-    If silent=True, only prints a message if an update is found.
-    If silent=False, always prints the result.
+    silent=True 时，仅在发现更新时打印消息。
+    silent=False 时，总是打印结果。
     """
     global LAST_UPDATE_RESULT
     tag, url = _fetch_latest_release(timeout=timeout)
@@ -109,54 +109,54 @@ def check_for_updates(silent=True, timeout=5):
     if latest > current:
         LAST_UPDATE_RESULT = ("update_available", tag, url)
         if not silent:
-            info(f"New version available: {color(tag, COLOR_GREEN, COLOR_BOLD)} (current: {color(VERSION, COLOR_YELLOW)})")
-            hint(f"Download: {color(url, COLOR_CYAN)}")
+            info(f"发现新版本：{color(tag, COLOR_GREEN, COLOR_BOLD)}（当前：{color(VERSION, COLOR_YELLOW)}）")
+            hint(f"下载地址：{color(url, COLOR_CYAN)}")
         return True
 
     LAST_UPDATE_RESULT = "up_to_date"
     if not silent:
-        ok(f"Already up to date (v{VERSION})")
+        ok(f"已是最新版本（v{VERSION}）")
     return False
 
 
 def open_releases_page():
-    """Open the GitHub releases page in the default browser."""
+    """在默认浏览器中打开 GitHub 发布页面。"""
     webbrowser.open(RELEASES_URL)
-    ok(f"Opening: {color(RELEASES_URL, COLOR_CYAN)}")
+    ok(f"正在打开：{color(RELEASES_URL, COLOR_CYAN)}")
 
 
 def open_issues_page():
-    """Open the GitHub issues page in the default browser."""
+    """在默认浏览器中打开 GitHub issues 页面。"""
     webbrowser.open(ISSUES_URL)
-    ok(f"Opening: {color(ISSUES_URL, COLOR_CYAN)}")
+    ok(f"正在打开：{color(ISSUES_URL, COLOR_CYAN)}")
 
 
 def handle_patch_failure():
-    """Handle patch failure or signature not found.
+    """处理打补丁失败或未找到特征签名的情况。
 
-    Checks for updates:
-    - If an update is available, offers to open the releases page to install it.
-    - If using the latest version (or no update available), offers to create an issue on GitHub.
+    会检查更新：
+    - 若有可用更新，提示打开发布页面进行安装。
+    - 若已是最新版本（或没有更新），提示在 GitHub 上创建 issue。
     """
     from patcher.cli import confirmed
 
     print()
-    info("Checking for patcher updates...")
+    info("正在检查补丁工具更新……")
     has_update = check_for_updates(silent=True)
 
     if has_update and isinstance(LAST_UPDATE_RESULT, tuple) and LAST_UPDATE_RESULT[0] == "update_available":
         _, tag, url = LAST_UPDATE_RESULT
-        info(f"An update for Open Antigravity Patcher is available: {color(tag, COLOR_GREEN, COLOR_BOLD)} (current: {color(VERSION, COLOR_YELLOW)})")
-        hint(f"Download: {color(url, COLOR_CYAN)}")
-        if confirmed("A patcher update is available. Would you like to open the releases page to install it?"):
+        info(f"Open Antigravity Patcher 有可用更新：{color(tag, COLOR_GREEN, COLOR_BOLD)}（当前：{color(VERSION, COLOR_YELLOW)}）")
+        hint(f"下载地址：{color(url, COLOR_CYAN)}")
+        if confirmed("补丁工具有可用更新，是否打开发布页面进行安装？"):
             webbrowser.open(url or RELEASES_URL)
-            ok(f"Opening: {color(url or RELEASES_URL, COLOR_CYAN)}")
+            ok(f"正在打开：{color(url or RELEASES_URL, COLOR_CYAN)}")
     else:
         if LAST_UPDATE_RESULT == "up_to_date":
-            ok(f"You are using the latest version of Open Antigravity Patcher (v{VERSION}).")
+            ok(f"你正在使用最新版本的 Open Antigravity Patcher（v{VERSION}）。")
 
-        hint(f"Issue tracker: {color(ISSUES_URL, COLOR_CYAN)}")
-        if confirmed("Would you like to open GitHub to create an issue?"):
+        hint(f"问题追踪页：{color(ISSUES_URL, COLOR_CYAN)}")
+        if confirmed("是否打开 GitHub 创建 issue？"):
             webbrowser.open(ISSUES_URL)
-            ok(f"Opening: {color(ISSUES_URL, COLOR_CYAN)}")
+            ok(f"正在打开：{color(ISSUES_URL, COLOR_CYAN)}")
 

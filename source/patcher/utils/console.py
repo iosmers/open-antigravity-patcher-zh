@@ -2,6 +2,7 @@ import os
 import sys
 import ctypes
 import re
+import unicodedata
 from patcher.constants import (
     VERSION, COLOR_RESET, COLOR_CYAN, COLOR_GREEN, COLOR_YELLOW, COLOR_RED,
     COLOR_BOLD, COLOR_DIM, COLOR_GRAY, COLOR_WHITE, COLOR_UNDERLINE,
@@ -51,7 +52,7 @@ def color(text, *styles):
 
 
 def link(url, text=None, *styles):
-    """Format text as an ANSI OSC 8 terminal hyperlink with optional styling."""
+    """将文本格式化为 ANSI OSC 8 终端超链接，可附加样式。"""
     if text is None:
         text = url
     styled_text = color(text, *styles) if styles else text
@@ -64,38 +65,48 @@ def clear_screen():
     os.system("cls" if os.name == "nt" else "clear")
 
 
-# Layout constants shared by banner, menu dividers, and summary panels.
-# BANNER_INNER_WIDTH is the visible width inside a framed box.
-# MENU_WIDTH is the matching outer menu width, including the frame columns.
+# 横幅、菜单分隔线和结果面板共用的布局常量。
+# BANNER_INNER_WIDTH 是边框内部的可见宽度。
+# MENU_WIDTH 是与之匹配的菜单外部宽度（含边框列）。
 BANNER_INNER_WIDTH = 47
 MENU_WIDTH = BANNER_INNER_WIDTH + 2
 
 
+def _char_width(ch):
+    """返回单个字符在终端中占用的列数（中日韩全角字符占 2 列）。"""
+    if unicodedata.combining(ch):
+        return 0
+    return 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+
+
 def _visible_len(text):
-    """Return visible text length without ANSI escape codes (color/link)."""
-    if "\x1b" not in text:
-        return len(text)
-    clean = re.sub(r'\x1b\]8;;.*?(?:\x1b\\|\x07)', '', text)
-    clean = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', clean)
-    return len(clean)
+    """返回去除 ANSI 转义序列（颜色/超链接）后的文本显示宽度。
+
+    中文等全角字符按 2 列计算，否则带中文的菜单和边框会错位。
+    """
+    clean = text
+    if "\x1b" in clean:
+        clean = re.sub(r'\x1b\]8;;.*?(?:\x1b\\|\x07)', '', clean)
+        clean = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', clean)
+    return sum(_char_width(ch) for ch in clean)
 
 
 
 
-# Shared frame helpers for the banner and operation summary panels.
+# 横幅与操作结果面板共用的边框绘制辅助函数。
 def _frame_border(left_ch, fill_ch, right_ch, accent=COLOR_CYAN):
-    """Build a horizontal frame border."""
+    """构建一条水平边框线。"""
     return color(left_ch + fill_ch * BANNER_INNER_WIDTH + right_ch, accent, COLOR_BOLD)
 
 
 def _frame_row(left, right="", accent=COLOR_CYAN):
-    """Build a frame row with left text and optional right-aligned text."""
+    """构建一行边框内容：左侧文本 + 可选的右对齐文本。"""
     left_str = "  " + left
     fill = BANNER_INNER_WIDTH - _visible_len(left_str) - _visible_len(right) - 1
     if fill < 1:
         fill = 1
     body = left_str + (" " * fill) + right + " "
-    # Correct to exact visible width in case ANSI escapes skew the padding.
+    # 修正到精确的可见宽度，避免 ANSI 转义序列导致填充偏差。
     vis = _visible_len(body)
     if vis < BANNER_INNER_WIDTH:
         body = left_str + (" " * (fill + BANNER_INNER_WIDTH - vis)) + right + " "
@@ -109,7 +120,7 @@ def print_banner():
     title_left = color("Open AG Patcher", COLOR_BOLD)
     title_right = color(f"v{VERSION}", COLOR_GREEN, COLOR_BOLD)
 
-    label_col = 12  # ширина колонки подписей (Telegram/YouTube) для ровной сетки
+    label_col = 12  # 标签列（Telegram/YouTube）宽度，用于对齐网格
     telegram = color("Telegram".ljust(label_col), COLOR_YELLOW) + link("https://t.me/avencoresyt", "t.me/avencoresyt", COLOR_DIM, COLOR_UNDERLINE)
     youtube = color("YouTube".ljust(label_col), COLOR_YELLOW) + link("https://youtube.com/@avencores", "youtube.com/@avencores", COLOR_DIM, COLOR_UNDERLINE)
 
@@ -117,8 +128,8 @@ def print_banner():
     print()
     print(f"  {_frame_border('╔', '═', '╗')}")
     print(f"  {_frame_row(title_left, title_right)}")
-    print(f"  {_frame_row(color('Region bypass for Antigravity', COLOR_CYAN))}")
-    print(f"  {_frame_row(color('Clean • No keys • No telemetry', COLOR_GREEN))}")
+    print(f"  {_frame_row(color('Antigravity 区域限制解除工具', COLOR_CYAN))}")
+    print(f"  {_frame_row(color('纯净 • 无密钥 • 无遥测', COLOR_GREEN))}")
     print(f"  {_frame_border('╟', '─', '╢')}")
     print(f"  {_frame_row(telegram)}")
     print(f"  {_frame_row(youtube)}")
@@ -128,7 +139,7 @@ def print_banner():
 
 
 def print_panel(title, rows, accent=COLOR_GREEN):
-    """Render a compact framed summary panel for operation results."""
+    """渲染一个紧凑的带边框面板，用于展示操作结果摘要。"""
     print()
     try:
         print(f"  {_frame_border('╔', '═', '╗', accent)}")
@@ -149,39 +160,39 @@ def print_panel(title, rows, accent=COLOR_GREEN):
     print()
 
 
-# Shared marker helpers for all operation output.
+# 所有操作输出共用的标记辅助函数。
 def info(msg):
-    """Neutral progress/status line."""
+    """中性的进度/状态行。"""
     print(f"  [*] {msg}")
 
 
 def hint(msg):
-    """Dim hint line."""
+    """暗色提示行。"""
     print(color(f"  [i] {msg}", COLOR_DIM))
 
 
 def ok(msg):
-    """Green success line."""
+    """绿色成功行。"""
     print(color(f"  [+] {msg}", COLOR_GREEN, COLOR_BOLD))
 
 
 def warn(msg):
-    """Yellow warning line."""
+    """黄色警告行。"""
     print(color(f"  [!] {msg}", COLOR_YELLOW))
 
 
 def err(msg):
-    """Red error line."""
+    """红色错误行。"""
     print(color(f"  [!] {msg}", COLOR_RED))
 
 
 def cancel(msg):
-    """Dim cancellation line."""
+    """暗色取消行。"""
     print(color(f"  [x] {msg}", COLOR_DIM))
 
 
 def step(name, applied, detail=""):
-    """Checklist row: green check, red cross, or dim neutral marker for skipped steps."""
+    """清单行：绿色对勾、红色叉号，跳过的步骤使用暗色中性标记。"""
     if applied is None:
         marker = color("•", COLOR_DIM)
     else:
@@ -200,35 +211,35 @@ def step(name, applied, detail=""):
 
 
 def _center_line(text, width=MENU_WIDTH):
-    """Дополняет строку пробелами справа до полной ширины панели меню."""
+    """在字符串右侧补空格，直到达到菜单面板的完整宽度。"""
     visible = _visible_len(text)
     if visible >= width:
         return text
     return text + " " * (width - visible)
 
 
-# ─── Menu UI helpers ──────────────────────────────────────────────────────────
+# ─── 菜单界面辅助函数 ─────────────────────────────────────────────────────────
 def print_menu_section(title):
-    """Заголовок секции меню, обведённый тонкой линией.
+    """菜单分区标题，用细线包围。
 
-    Пример:  ── PATCH ────────────────────────────────
-    Ширина всей строки (включая ведущий ─) равна MENU_WIDTH,
-    чтобы правый край совпадал с разделителями и рамкой баннера.
+    示例:  ── 打补丁 ────────────────────────────────
+    整行宽度（含开头的 ─）等于 MENU_WIDTH，
+    以便右边缘与分隔线和横幅边框对齐。
     """
     label = f" {title} "
-    visible = len(label)
-    dashes = "─" * max(1, MENU_WIDTH - visible - 1)  # -1 под ведущий «─»
+    visible = _visible_len(label)
+    dashes = "─" * max(1, MENU_WIDTH - visible - 1)  # -1 留给开头的「─」
     line = color("─", COLOR_GRAY) + color(label, COLOR_CYAN, COLOR_BOLD) + color(dashes, COLOR_GRAY)
     print(f"  {line}")
 
 
 def print_menu_row(number, label, hint="", accent=COLOR_GREEN):
-    """Строка пункта меню.
+    """菜单条目行。
 
-    Формат:    [1]  Apply Antigravity IDE patch      Apply / enable bypass
-    number — строка-номер (может быть пустой для разделителей-подсказок).
-    hint — короткое описание справа, рисуется приглушённым цветом.
-    accent — цвет метки номера.
+    格式:    [1]  应用 Antigravity IDE 补丁      应用 / 启用绕过
+    number —— 编号字符串（提示性分隔行可以留空）。
+    hint —— 右侧的简短说明，使用暗色绘制。
+    accent —— 编号标签的颜色。
     """
     num_part = color(f"[{number}]", accent, COLOR_BOLD) if number != "" else color("  ", COLOR_GRAY)
     label_part = color(label, COLOR_WHITE)
@@ -243,12 +254,12 @@ def print_menu_row(number, label, hint="", accent=COLOR_GREEN):
 
 
 def print_menu_divider():
-    """Тонкий горизонтальный разделитель."""
+    """细的水平分隔线。"""
     print(f"  {color('─' * MENU_WIDTH, COLOR_GRAY)}")
 
 
 def print_menu_footer(note=""):
-    """Подвал под списком пунктов: тёмная линия и заметка."""
+    """条目列表下方的页脚：暗色线条和备注。"""
     print(f"  {color('─' * MENU_WIDTH, COLOR_GRAY)}")
     if note:
         print(f"  {color(note, COLOR_DIM)}")

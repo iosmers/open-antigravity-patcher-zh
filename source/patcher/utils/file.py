@@ -11,7 +11,7 @@ except ImportError:
 
 
 def file_hash(path):
-    """Возвращает SHA-256 файла или None при ошибке."""
+    """返回文件的 SHA-256 值，出错时返回 None。"""
     try:
         h = hashlib.sha256()
         with open(path, "rb") as f:
@@ -38,7 +38,7 @@ def format_bytes(size_bytes):
 
 
 def fix_posix_permissions(path):
-    """Ensures the path and its contents are owned by the invoking user on POSIX when running via sudo."""
+    """在 POSIX 上通过 sudo 运行时，确保路径及其内容归属于调用者用户。"""
     if os.name != "posix" or os.getuid() != 0:
         return
 
@@ -53,7 +53,7 @@ def fix_posix_permissions(path):
 
 
 def get_posix_invoking_user_home():
-    """Returns the invoking user's home on POSIX, even when running via sudo."""
+    """返回 POSIX 下调用者用户的主目录，即使通过 sudo 运行也能正确获取。"""
     if os.name != "posix":
         return ""
 
@@ -96,10 +96,10 @@ def backup_json_file(path):
 
 
 def find_app_bundle(path):
-    """Поднимается вверх от path до первой директории, оканчивающейся на .app.
+    """从 path 向上查找第一个以 .app 结尾的目录。
 
-    Используется только на macOS, чтобы определить корень .app-бандла
-    для переподписи после модификации main.js.
+    仅在 macOS 上使用，用于确定 .app 包的根目录，
+    以便在修改 main.js 后重新签名。
     """
     p = os.path.abspath(path)
     while p and p != os.path.dirname(p):
@@ -110,23 +110,23 @@ def find_app_bundle(path):
 
 
 def remove_macos_immutable_flags(path):
-    """Снимает флаги uchg/schg с файла или директории на macOS.
+    """在 macOS 上移除文件或目录的 uchg/schg 标志。
 
-    На macOS файлы внутри .app-бандлов могут иметь флаги immutable,
-    которые блокируют запись даже для root (Errno 1 Operation not
-    permitted при shutil.copy2 / создании бэкапа внутри бандла).
-    Вызывать перед попыткой записи в .app-бандл.
+    macOS 上 .app 包内的文件可能带有 immutable 标志，
+    即使是 root 也无法写入（在包内执行 shutil.copy2 / 创建备份时
+    会出现 Errno 1 Operation not permitted）。
+    在尝试写入 .app 包之前调用本函数。
 
-    Возвращает True, если chflags отработал (или платформа не darwin).
+    如果 chflags 执行成功（或平台不是 darwin），返回 True。
     """
     import sys
     if sys.platform != "darwin":
         return True
     ok_flag = False
-    # -R работает и для одиночных файлов, и для директорий.
-    # Пробуем сначала связку nouchg,noschg, затем по отдельности
-    # (noschg без Recovery может не сняться — это нормально).
-    # Абсолютный путь /usr/bin/chflags: в frozen-сборках PATH может быть пустым.
+    # -R 对单个文件和目录都有效。
+    # 先尝试 nouchg,noschg 组合，然后分别尝试
+    # （没有恢复模式时 noschg 可能无法移除，这是正常现象）。
+    # 使用绝对路径 /usr/bin/chflags：在 frozen 构建中 PATH 可能为空。
     for args in (
         ["/usr/bin/chflags", "-R", "nouchg,noschg", path],
         ["/usr/bin/chflags", "-R", "nouchg", path],
@@ -148,12 +148,12 @@ def remove_macos_immutable_flags(path):
 
 
 def ensure_macos_writable(path):
-    """Готовит путь внутри .app-бандла к записи на macOS.
+    """在 macOS 上为写入 .app 包内的路径做好准备。
 
-    Снимает immutable-флаги с самого файла и с корня .app-бандла,
-    а также quarantine с бандла. Безопасен на других ОС (no-op).
-    Вызывать ПЕРЕД созданием бэкапа и ПЕРЕД атомарной заменой,
-    т.к. обе операции пишут внутрь бандла.
+    移除文件本身和 .app 包根目录的 immutable 标志，
+    并移除包的 quarantine 属性。在其他操作系统上安全（空操作）。
+    必须在创建备份之前和原子替换之前调用，
+    因为这两个操作都会写入包内部。
     """
     import sys
     if sys.platform != "darwin":
@@ -173,10 +173,10 @@ def ensure_macos_writable(path):
 
 
 def remove_macos_quarantine(path):
-    """Снимает атрибут com.apple.quarantine с .app-бандла.
+    """移除 .app 包的 com.apple.quarantine 属性。
 
-    Используется встроенная утилита /usr/bin/xattr — дополнительные
-    Python-пакеты не нужны, работает и во frozen-сборках без os.*xattr API.
+    使用系统自带的 /usr/bin/xattr 工具 —— 无需额外的
+    Python 包，在缺少 os.*xattr API 的 frozen 构建中同样可用。
     """
     import sys
     if sys.platform != "darwin":
@@ -193,14 +193,14 @@ def remove_macos_quarantine(path):
 
 
 def resign_macos_bundle(main_js_path):
-    """Переподписывает .app ad-hoc подписью после изменения main.js.
+    """在修改 main.js 后，使用 ad-hoc 签名重新签署 .app 包。
 
-    На macOS любая модификация файла внутри подписанного .app-бандла
-    нарушает code signature. Electron-приложения с Hardened Runtime
-    после этого падают при запуске. codesign --force --sign - кладёт
-    ad-hoc подпись (без Developer ID), чего достаточно для локального
-    запуска. Дополнительно снимается атрибут com.apple.quarantine,
-    чтобы Gatekeeper не показывал предупреждение.
+    在 macOS 上，对已签名 .app 包内任何文件的修改都会
+    破坏代码签名。启用了 Hardened Runtime 的 Electron 应用
+    之后会在启动时崩溃。codesign --force --sign - 会打上
+    ad-hoc 签名（不含 Developer ID），这对本地运行已经足够。
+    此外还会移除 com.apple.quarantine 属性，
+    以免 Gatekeeper 弹出警告。
     """
     import sys
     if sys.platform != "darwin":
@@ -210,33 +210,33 @@ def resign_macos_bundle(main_js_path):
 
     app_path = find_app_bundle(main_js_path)
     if not app_path:
-        # main.js лежит не внутри .app (например, portable-копия) — пропускаем
+        # main.js 不在 .app 内（例如便携版副本）—— 跳过
         return
 
-    info(f"Re-signing {os.path.basename(app_path)} (ad-hoc)...")
+    info(f"正在重新签名 {os.path.basename(app_path)}（ad-hoc）……")
     try:
         subprocess.run(
             ["/usr/bin/codesign", "--force", "--deep", "--sign", "-", app_path],
             check=True, capture_output=True, text=True, timeout=60,
         )
-        ok("Ad-hoc signature applied")
+        ok("已应用 ad-hoc 签名")
     except FileNotFoundError:
-        warn("codesign not found - install Xcode Command Line Tools")
+        warn("未找到 codesign —— 请安装 Xcode 命令行工具")
         return
     except subprocess.CalledProcessError as e:
         stderr = (e.stderr or "").strip()
-        warn(f"codesign failed: {stderr}")
+        warn(f"codesign 执行失败：{stderr}")
         return
 
     remove_macos_quarantine(app_path)
 
 
 def resign_macos_binary(path):
-    """Переподписывает Antigravity 2.0 бинарь ad-hoc подписью после его модификации.
+    """在修改后，使用 ad-hoc 签名重新签署 Antigravity 2.0 二进制文件。
 
-    На Apple Silicon macOS немедленно SIGKILL-ит процесс, если code signature
-    не совпадает с содержимым. codesign --force --sign - заменяет Developer ID
-    подпись на ad-hoc (signing identity «-»), чего достаточно для локального запуска.
+    在 Apple Silicon 上，若代码签名与文件内容不一致，macOS 会立即
+    向进程发送 SIGKILL。codesign --force --sign - 会把 Developer ID
+    签名替换为 ad-hoc 签名（签名标识为「-」），这对本地运行已经足够。
     """
     import sys
     if sys.platform != "darwin":
@@ -245,14 +245,14 @@ def resign_macos_binary(path):
     from patcher.utils.console import info, ok, warn
 
     real = os.path.realpath(path)
-    info(f"Re-signing {os.path.basename(real)} (ad-hoc)...")
+    info(f"正在重新签名 {os.path.basename(real)}（ad-hoc）……")
     try:
         subprocess.run(
             ["/usr/bin/codesign", "--force", "--sign", "-", real],
             check=True, capture_output=True, text=True, timeout=60,
         )
-        ok("Ad-hoc signature applied")
+        ok("已应用 ad-hoc 签名")
     except FileNotFoundError:
-        warn("codesign not found — install Xcode Command Line Tools")
+        warn("未找到 codesign —— 请安装 Xcode 命令行工具")
     except subprocess.CalledProcessError as e:
-        warn(f"codesign failed: {(e.stderr or '').strip()}")
+        warn(f"codesign 执行失败：{(e.stderr or '').strip()}")

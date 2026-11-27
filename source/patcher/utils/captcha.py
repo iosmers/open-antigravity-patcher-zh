@@ -4,10 +4,10 @@ from patcher.utils.console import warn, hint, color, COLOR_CYAN
 
 
 def generate_math_captcha():
-    """Generate a unique math CAPTCHA (addition of two two-digit numbers).
+    """生成一个数学验证码（两个两位数相加）。
 
     Returns:
-        tuple[str, str]: (human readable question, expected answer string).
+        tuple[str, str]: (可读的题目, 期望的答案字符串)。
     """
     a = random.randint(10, 99)
     b = random.randint(10, 99)
@@ -17,29 +17,28 @@ def generate_math_captcha():
 
 
 def confirm_with_captcha(message):
-    """Show a warning and require the user to solve a math CAPTCHA.
+    """显示警告，并要求用户解答数学验证码。
 
     Args:
-        message: Context/prompt shown to the user (e.g. the action they
-            are about to confirm).
+        message: 向用户展示的上下文/提示（例如即将确认的操作）。
 
     Returns:
-        bool: True if the user solved the CAPTCHA, False if they cancelled
-        (empty input or KeyboardInterrupt).
+        bool: 用户答对验证码返回 True；用户取消（输入为空或
+        按下 Ctrl+C）返回 False。
     """
-    # Local import avoids a circular dependency: captcha.py is used by
-    # patcher modules, while cli.py imports those same modules.
+    # 使用局部导入避免循环依赖：captcha.py 被各 patcher 模块使用，
+    # 而 cli.py 又导入了这些模块。
     from patcher.cli import _read_console_line
 
-    warn("Warning: this file appears to be already patched.")
-    warn("Re-patching is most likely unnecessary and may cause issues.")
-    warn("If you are sure, solve the CAPTCHA below to proceed.")
-    hint("Leave the answer empty and press Enter to return to the main menu.")
+    warn("警告：该文件似乎已经打过补丁。")
+    warn("重复打补丁很可能没有必要，并且可能引发问题。")
+    warn("如果你确定要继续，请解答下方的验证码。")
+    hint("答案留空并按回车即可返回主菜单。")
 
     while True:
         question, expected = generate_math_captcha()
         print(f"  [?] {message}")
-        prompt = f"        {question} ({color('answer', COLOR_CYAN)}): "
+        prompt = f"        {question} （{color('答案', COLOR_CYAN)}）: "
 
         try:
             raw = _read_console_line(prompt).strip()
@@ -52,4 +51,4 @@ def confirm_with_captcha(message):
         if raw == expected:
             return True
 
-        warn("Incorrect answer. Try again with a new CAPTCHA.")
+        warn("答案错误，请用新的验证码重试。")

@@ -4,7 +4,7 @@ MIN_ANTIGRAVITY_VERSION = "2.15.0"
 DOWNLOAD_URL = "https://antigravity.google/download"
 
 
-# Единственное место, где хранится GUID установщика Antigravity IDE
+# 存放 Antigravity IDE 安装程序 GUID 的唯一位置
 AG_REGISTRY_SUBKEY = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{AA73B3E3-C6C8-45C8-B1DC-4AE56C751432}_is1"
 
 CSI = "\x1b["
