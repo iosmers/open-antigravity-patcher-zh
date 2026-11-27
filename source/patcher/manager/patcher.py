@@ -155,10 +155,10 @@ def _scan_data(f):
 
 @contextlib.contextmanager
 def _mapped(path):
-    """Read-only bytes-view для сканирования сигнатур.
+    """用于扫描特征码的只读字节视图。
 
-    На macOS не маппит страницы подписанного файла (SIGKILL-риск),
-    а читает через _scan_data; на остальных ОС — zero-copy mmap."""
+    在 macOS 上不对已签名文件做内存映射（有 SIGKILL 风险），
+    而是通过 _scan_data 读取；其他系统使用零拷贝 mmap。"""
     with open(path, "rb") as f:
         with _scan_data(f) as data:
             yield data
@@ -166,14 +166,14 @@ def _mapped(path):
 
 def is_locked(path):
     """
-    True, если файл занят (приложение запущено).
+    若文件被占用（应用正在运行）则返回 True。
 
-    На POSIX замена файла через os.replace возможна даже при работающем процессе,
-    поэтому блокирующим считаем только Windows.
+    在 POSIX 上即使进程正在运行，也可以通过 os.replace 替换文件，
+    因此只有 Windows 才视为会被锁定。
 
-    Примечание: на POSIX это не гарантирует, что файл не используется.
-    Если нужна проверка на занятость, требуется более сложная логика
-    (например, проверка процессов или файловые блокировки).
+    注意：在 POSIX 上这并不能保证文件未被使用。
+    如果确实需要判断占用情况，需要更复杂的逻辑
+    （例如检查进程或文件锁）。
     """
     if os.name != "nt":
         return False
@@ -212,15 +212,15 @@ def _make_backup(path):
     else:
         info(f"Creating backup -> {os.path.basename(path)}{BAK_EXT}")
     if sys.platform == "darwin":
-        # Файлы внутри .app часто несут uchg-флаг: даже root получает
-        # Errno 1 Operation not permitted при copy2 без предварительного chflags.
+        # .app 包内的文件常带有 uchg 标志：若未先执行 chflags，
+        # 即使是 root 在 copy2 时也会收到 Errno 1 Operation not permitted。
         ensure_macos_writable(path)
     try:
         shutil.copy2(path, bak)
     except (PermissionError, OSError) as e:
-        # EPERM (errno 1) на macOS — почти всегда immutable-флаг/владелец.
-        # Одна повторная попытка после снятия флагов, затем проброс наружу,
-        # где do_patch_manager покажет понятную подсказку вместо traceback.
+        # macOS 上的 EPERM（errno 1）几乎总是由 immutable 标志/属主导致。
+        # 移除标志后重试一次，若仍失败则向外抛出，
+        # 由 do_patch_manager 显示易懂的提示而不是 traceback。
         need_retry = (
             sys.platform == "darwin"
             and isinstance(e, OSError)
@@ -249,7 +249,7 @@ def do_patch_manager(path):
     info(f"Target: {color(path, COLOR_CYAN)}")
     hint(f"Size: {color(format_bytes(file_size(path)), COLOR_CYAN)}")
 
-    # Проверка версии Antigravity (считывается из package.json в app.asar)
+    # 检查 Antigravity 版本（从 app.asar 中的 package.json 读取）
     asar_path = find_asar_relative_to_manager(path)
     if asar_path:
         ver_status, ver_str = check_antigravity_version(asar_path)
@@ -316,11 +316,11 @@ def do_patch_manager(path):
 
         try:
             if os.name == "nt":
-                # Windows: прямая запись с проверкой блокировки
+                # Windows：直接写入，并检查锁定状态
                 with open(path, "r+b") as f:
                     bdata = bytearray(f.read())
 
-                    # Валидация (offset, границы, размер) и применение патча
+                    # 校验（偏移、边界、大小）并应用补丁
                     bdata = apply_patches_to_data(bdata, [(off, matched_gate)])
 
                     f.seek(0)
@@ -328,15 +328,15 @@ def do_patch_manager(path):
                     f.flush()
                     os.fsync(f.fileno())
             else:
-                # POSIX: атомарная замена через временный файл
+                # POSIX：通过临时文件进行原子替换
                 with open(path, "rb") as f:
                     bdata = bytearray(f.read())
 
-                # Валидация (offset, границы, размер) и применение патча
+                # 校验（偏移、边界、大小）并应用补丁
                 bdata = apply_patches_to_data(bdata, [(off, matched_gate)])
 
-                # Атомарная замена с безопасным временным файлом
-                # (на macOS каталог .app может нести uchg — снимаем перед mkstemp)
+                # 使用安全的临时文件进行原子替换
+                # （macOS 上 .app 目录可能带有 uchg —— 在 mkstemp 之前先移除）
                 if sys.platform == "darwin":
                     ensure_macos_writable(path)
                 atomic_replace_posix(path, bytes(bdata))
@@ -363,7 +363,7 @@ def do_patch_manager(path):
             handle_patch_failure()
             return
         except OSError as e:
-            # EPERM вне PermissionError (на всякий случай) — та же подсказка про sudo/флаги
+            # 以防出现不属于 PermissionError 的 EPERM —— 同样给出 sudo/标志相关提示
             if e.errno in (errno.EPERM, errno.EACCES) and attempt == 0 and sys.platform == "darwin":
                 warn(f"Write blocked by macOS (flags/owner): {e}")
                 ensure_macos_writable(path)
@@ -431,11 +431,11 @@ def do_restore_manager(path):
         if os.name == "nt":
             shutil.copy2(bak, path)
         else:
-            # Читаем бэкап в память
+            # 将备份读入内存
             with open(bak, "rb") as f:
                 bak_data = f.read()
 
-            # Атомарная замена с метаданными из бэкапа
+            # 使用备份的元数据进行原子替换
             atomic_replace_posix(path, bak_data, meta_source=bak)
 
         fix_posix_permissions(path)

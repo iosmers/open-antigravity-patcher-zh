@@ -22,29 +22,29 @@ def clean_path(raw_path):
 
 
 def find_portable_candidates(search_type="ide"):
-    """Ищет портативные версии в пользовательских папках и на других дисках."""
+    """在用户目录和其他磁盘中搜索便携版。"""
     roots = []
 
-    # 1. Получаем домашнюю папку пользователя
+    # 1. 获取用户主目录
     home = ""
     if sys.platform != "win32":
         home = get_posix_invoking_user_home()
     if not home:
         home = os.path.expanduser("~")
 
-    # Добавляем специфичные папки пользователя (включая русские локализации и нижний регистр)
+    # 添加用户的常用目录（包含中文、俄语本地化名称及小写形式）
     if home and os.path.isdir(home):
         standard_subs = [
-            "Downloads", "Загрузки", "downloads", "загрузки",
-            "Desktop", "Рабочий стол", "desktop", "рабочий стол",
-            "Documents", "Документы", "documents", "документы"
+            "Downloads", "下载", "Загрузки", "downloads", "загрузки",
+            "Desktop", "桌面", "Рабочий стол", "desktop", "рабочий стол",
+            "Documents", "文档", "Документы", "documents", "документы"
         ]
         for sub in standard_subs:
             p = os.path.join(home, sub)
             if os.path.isdir(p):
                 roots.append(p)
 
-    # 2. На Linux просим систему дать точные пути через xdg-user-dir
+    # 2. 在 Linux 上通过 xdg-user-dir 让系统提供准确路径
     if sys.platform != "win32" and os.name == "posix":
         sudo_user = os.environ.get("SUDO_USER")
         for folder_type in ["DOWNLOAD", "DESKTOP", "DOCUMENTS"]:
@@ -60,12 +60,12 @@ def find_portable_candidates(search_type="ide"):
             except Exception:
                 pass
 
-    # 3. Текущая директория запуска
+    # 3. 当前运行目录
     cwd = os.getcwd()
     if cwd and os.path.isdir(cwd):
         roots.append(cwd)
 
-    # 4. Корни других дисков для Windows
+    # 4. Windows 上其他磁盘的根目录
     if os.name == "nt":
         for letter in string.ascii_uppercase:
             if letter == "C":
@@ -74,11 +74,11 @@ def find_portable_candidates(search_type="ide"):
             if os.path.exists(drive):
                 roots.append(drive)
 
-    # 5. Домашняя папка целиком (как крайний вариант в самом конце)
+    # 5. 整个主目录（作为最后的兜底方案）
     if home and os.path.isdir(home):
         roots.append(home)
 
-    # Убираем дубликаты, сохраняя порядок приоритетности
+    # 去除重复项，同时保持优先级顺序
     seen = set()
     unique_roots = []
     for r in roots:
@@ -92,7 +92,7 @@ def find_portable_candidates(search_type="ide"):
     visited_dirs = 0
     max_dirs = 1500
 
-    # Исключаем тяжелые/системные папки (предвычисляем множество имён в нижнем регистре)
+    # 排除体积大的/系统目录（预先计算小写名称集合）
     prune_dirs = {
         ".git", "node_modules", "AppData", "Application Data", "Library",
         "System Volume Information", "$RECYCLE.BIN", "Windows", "Program Files",
@@ -109,10 +109,10 @@ def find_portable_candidates(search_type="ide"):
             if visited_dirs > max_dirs:
                 return candidates
 
-            # Фильтруем dirnames на месте
+            # 就地过滤 dirnames
             dirnames[:] = [d for d in dirnames if d.lower() not in prune_lower and not d.startswith('.')]
 
-            # Вычисляем глубину относительно корня поиска
+            # 计算相对于搜索根目录的深度
             try:
                 rel = os.path.relpath(dirpath, root)
                 if rel == ".":
@@ -123,14 +123,14 @@ def find_portable_candidates(search_type="ide"):
                 depth = 999
 
             if depth >= 3:
-                dirnames[:] = []  # Не спускаемся глубже
+                dirnames[:] = []  # 不再向更深层递归
 
-            # Проверяем, подходит ли папка под критерий эвристики
+            # 检查该目录是否符合启发式判定条件
             is_match = "antigravity" in dirpath.lower() or dirpath == root
 
             if is_match:
                 if search_type == "ide":
-                    # Ищем признаки Antigravity IDE
+                    # 查找 Antigravity IDE 的特征
                     for sub in [
                         os.path.join("resources", "app", "out", "main.js"),
                         os.path.join("resources", "app", "main.js"),
@@ -147,7 +147,7 @@ def find_portable_candidates(search_type="ide"):
                                     print(f"  [+] Found portable {label} at: {dirpath}")
                                 break
                 elif search_type == "antigravity":
-                    # Ищем признаки Antigravity
+                    # 查找 Antigravity 的特征
                     if os.path.exists(os.path.join(dirpath, "resources", "app.asar")) or \
                        os.path.exists(os.path.join(dirpath, "resources", "app1.asar")):
                         if dirpath not in candidates:
@@ -165,7 +165,7 @@ def find_install_root():
     candidates = []
 
     if sys.platform == "darwin":
-        # На macOS приложение — .app-бандл, main.js лежит внутри Contents/Resources/app
+        # macOS 上应用是 .app 包，main.js 位于 Contents/Resources/app 内
         mac_candidates = [
             "/Applications/Antigravity IDE.app",
             os.path.expanduser("~/Applications/Antigravity IDE.app"),
@@ -226,7 +226,7 @@ def find_install_root():
 
 
 def find_main_js(root):
-    # macOS: пользователь может передать путь к .app-бандлу напрямую
+    # macOS：用户可以直接传入 .app 包的路径
     if sys.platform == "darwin" and root.lower().endswith(".app") and os.path.isdir(root):
         root = os.path.join(root, "Contents", "Resources", "app")
 
@@ -243,12 +243,12 @@ def find_main_js(root):
 
 
 def get_ag_version(main_js_path):
-    """Читает версию Antigravity IDE из реестра Windows, Info.plist на macOS или package.json на Linux.
-    Возвращает (version_str, is_pkg_mgr).
+    """从 Windows 注册表、macOS 的 Info.plist 或 Linux 的 package.json 读取 Antigravity IDE 版本。
+    返回 (version_str, is_pkg_mgr)。
     """
-    # macOS: читаем версию из Info.plist
+    # macOS：从 Info.plist 读取版本
     if sys.platform == "darwin":
-        # Ищем .app-бандл, поднимаясь от main.js
+        # 从 main.js 向上查找 .app 包
         app_path = ""
         p = os.path.dirname(main_js_path)
         while p and p != os.path.dirname(p):
@@ -290,7 +290,7 @@ def get_ag_version(main_js_path):
         return None, False
 
     if os.name == "posix":
-        # Пробуем менеджеры пакетов (apt, rpm) с разными именами
+        # 尝试使用包管理器（apt、rpm）并匹配不同的包名
         pkg_names = ["antigravity-ide", "antigravity-ide-bin", "antigravity-ide-custom"]
 
         # dpkg-query (Debian/Ubuntu)
@@ -357,8 +357,8 @@ def get_ag_version(main_js_path):
 
 def check_ag_version(main_js_path):
     """
-    Проверяет версию Antigravity IDE.
-    Возвращает (VersionStatus, detected_version_str | None).
+    检查 Antigravity IDE 的版本。
+    返回 (VersionStatus, detected_version_str | None)。
     """
     ver_str, is_pkg_mgr = get_ag_version(main_js_path)
 
@@ -368,10 +368,10 @@ def check_ag_version(main_js_path):
     try:
         detected = Version(ver_str)
 
-        # Минимальная версия зависит от платформы:
-        # - macOS: 1.107.0 (кастомные билды через Homebrew/DMG)
-        # - Linux без пакетного менеджера: 1.107.0 (кастомные билды)
-        # - Иначе: MIN_AG_VERSION (из реестра Windows или пакетного менеджера)
+        # 最低版本要求取决于平台：
+        # - macOS：1.107.0（通过 Homebrew/DMG 安装的自定义构建）
+        # - 无包管理器的 Linux：1.107.0（自定义构建）
+        # - 其他情况：MIN_AG_VERSION（来自 Windows 注册表或包管理器）
         min_ver_str = MIN_AG_VERSION
         if sys.platform == "darwin" and not is_pkg_mgr:
             min_ver_str = "1.107.0"
@@ -403,7 +403,7 @@ def resolve_target_path(raw_path):
     expanded = os.path.expandvars(os.path.expanduser(cleaned))
     resolved = os.path.abspath(expanded)
     
-    # Если указана директория, пробуем найти в ней main.js
+    # 如果给出的是目录，则尝试在其中查找 main.js
     if os.path.isdir(resolved):
         found = find_main_js(resolved)
         return found if found else resolved

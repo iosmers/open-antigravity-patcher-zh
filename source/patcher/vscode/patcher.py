@@ -25,21 +25,21 @@ from patcher.utils.update import handle_patch_failure
 BAK_EXT = ".vscodebak"
 
 # ---------------------------------------------------------------------------
-# PART 1 — маркер и оригинальная строка в extension.js
+# PART 1 —— extension.js 中的标记与原始代码行
 PART1_ANCHOR = "outputChannel.appendLine('[INSTALL] Checking Antigravity releases...');"
 
-# Гибкий regex для PART 1: допускает разные кавычки и пробелы, но требует
-# ПОЛНЫЙ вызов appendLine — вместе с закрывающей скобкой и опциональной ';'.
-# Это гарантирует, что вставка попадёт ПОСЛЕ вызова, а не внутри него.
-# Группа 1 — весь вызов целиком (точка вставки = m.end(1)).
+# PART 1 使用较宽松的正则：允许不同引号和空格，但要求匹配
+# 完整的 appendLine 调用 —— 包括右括号和可选的 ';'。
+# 这样可以保证插入点位于调用之后，而不是调用内部。
+# 分组 1 是整个调用（插入点 = m.end(1)）。
 PART1_ANCHOR_RE = re.compile(
     r"(outputChannel\s*\.\s*appendLine\s*\(\s*"            # outputChannel.appendLine(
-    r"(['\"])\[INSTALL\]\s*Checking Antigravity releases[^'\"]*\2"  # 'строка-маркер'
-    r"\s*\)\s*;?)"                                         # ) или );
+    r"(['\"])\[INSTALL\]\s*Checking Antigravity releases[^'\"]*\2"  # '标记字符串'
+    r"\s*\)\s*;?)"                                         # ) 或 );
 )
 
-# Инъекция: если бинарь уже скачан (targetPathOverride или ~/.gemini/bin),
-# пропускаем проверку версии и повторное скачивание.
+# 注入逻辑：如果程序文件已下载（targetPathOverride 或 ~/.gemini/bin），
+# 则跳过版本检查和重复下载。
 PART1_INJECT = (
     "{const __primary=options.targetPathOverride||getInstalledTargetPath();"
     "const __candidates=[__primary,"
@@ -49,10 +49,10 @@ PART1_INJECT = (
     "Skipping version check and re-download.');return __p;}}}"
 )
 
-# PART 2 — строка проверки смены канала заменяется на константу false,
-# чтобы расширение не считало канал изменённым и не перекачивало бинарь.
-# Строгий regex: ровно три идентификатора (manifestFetched, lastInstalledUrl,
-# releaseBaseUrl) в известном порядке — не цепляет посторонние выражения вида
+# PART 2 —— 把检测渠道变更的表达式替换为常量 false，
+# 这样扩展就不会认为渠道已改变，也不会重新下载程序文件。
+# 使用严格的正则：恰好三个标识符（manifestFetched、lastInstalledUrl、
+# releaseBaseUrl）且顺序固定 —— 不会误匹配其他形如下面的表达式
 # `const X = a && b !== c;`.
 PART2_RE = re.compile(
     r"const\s+isChannelChanged\s*=\s*"
@@ -63,12 +63,12 @@ PART2_REPLACEMENT = "const isChannelChanged = false;"
 
 
 def is_already_patched(content):
-    """True, если обе части патча уже применены к extension.js."""
+    """当两部分补丁都已应用到 extension.js 时返回 True。"""
     return (PART1_INJECT in content) and ("const isChannelChanged = false;" in content)
 
 
 def _apply_part1(content):
-    """Возвращает (новый_контент, статус). Статус: 'applied'|'already'|'not-found'."""
+    """返回 (新内容, 状态)。状态取值：'applied'|'already'|'not-found'。"""
     if PART1_INJECT in content:
         return content, "already"
     m = PART1_ANCHOR_RE.search(content)
@@ -76,7 +76,7 @@ def _apply_part1(content):
         insert_at = m.end(1)
         new_content = content[:insert_at] + PART1_INJECT + content[insert_at:]
         return new_content, "applied"
-    # Фолбэк: точный поиск по маркеру (на случай экзотического форматирования)
+    # 兜底方案：按标记做精确查找（应对特殊的代码格式）
     idx = content.find(PART1_ANCHOR)
     if idx == -1:
         return content, "not-found"
@@ -86,10 +86,10 @@ def _apply_part1(content):
 
 
 def _apply_part2(content):
-    """Возвращает (новый_контент, статус)."""
+    """返回 (新内容, 状态)。"""
     if PART2_DONE_RE.search(content):
-        # Уже пропатчено; но если рядом остался оригинальный вариант — это другой
-        # экземпляр, обрабатываем его ниже.
+        # 已打过补丁；但若附近仍存在原始写法 —— 说明那是另一个
+        # 实例，将在下面继续处理。
         new_content, n = PART2_RE.subn(PART2_REPLACEMENT, content)
         if n:
             return new_content, "applied"
@@ -114,7 +114,7 @@ def _make_backup(path):
 
 
 def do_patch_vscode(extension_js_path):
-    """Патчит extension.js расширения google.google-antigravity (PART 1 + PART 2)."""
+    """修补 google.google-antigravity 扩展的 extension.js（PART 1 + PART 2）。"""
     from patcher.cli import confirmed
 
     if not extension_js_path or not os.path.isfile(extension_js_path):
@@ -150,7 +150,7 @@ def do_patch_vscode(extension_js_path):
         hint("extension.js already patched (both parts).")
         if not confirmed("Apply patch anyway?"):
             return True
-        # re-patch: пересобираем из бэкапа, если он есть, иначе просто продолжаем
+        # 重新打补丁：若存在备份则基于备份重建，否则直接继续
         bak = path + BAK_EXT
         if os.path.isfile(bak):
             try:
@@ -207,9 +207,9 @@ def do_patch_vscode(extension_js_path):
 
 
 def do_restore_vscode(extension_js_path):
-    """Восстанавливает extension.js из бэкапа .vscodebak, а также бинарь
-    в ~/.gemini/bin (antigravity/agy) из его .agybak, если тот был пропатчен
-    пунктом 'Antigravity VS Code Patch'."""
+    """从 .vscodebak 备份还原 extension.js；如果 ~/.gemini/bin 中的
+    程序文件（antigravity/agy）曾通过「Antigravity VS Code 补丁」
+    菜单项修补过，也会从其 .agybak 备份一并还原。"""
     from patcher.cli import confirmed
 
     if not extension_js_path or not os.path.isfile(extension_js_path):
@@ -260,7 +260,7 @@ def do_restore_vscode(extension_js_path):
     print_panel("RESTORE COMPLETE", panel_rows)
     hint("Reload VS Code window (Developer: Reload Window) for the change to take effect.")
 
-    # --- Восстановление бинаря в ~/.gemini/bin (пропатчен agy-патчером) ---
+    # --- 还原 ~/.gemini/bin 中的程序文件（由 agy 补丁器修补） ---
     from patcher.vscode.discovery import find_gemini_antigravity_binary
     from patcher.agy.patcher import do_restore_agy
 

@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
-"""Совместимость agy-гейтов патчера с официальными билдами Antigravity CLI.
+"""验证补丁工具的 agy gate 与 Antigravity CLI 官方构建的兼容性。
 
-Скачивает ВСЕ архивы последнего релиза
+下载最新发布版本的全部压缩包
 https://github.com/google-antigravity/antigravity-cli/releases
-(или тега из AGY_RELEASE_TAG), распаковывает CLI-бинари (antigravity[.exe])
-и проверяет:
-  1. сигнатуры патчера находятся (статус не "unknown");
-  2. свежий официальный бинарь имеет статус "unpatched";
-  3. полный цикл patch -> "patched" -> restore -> "unpatched" на временной
-     копии (скачанные оригиналы не модифицируются).
+（或 AGY_RELEASE_TAG 指定的标签），解压 CLI 程序（antigravity[.exe]）
+并检查：
+  1. 能找到补丁工具的特征码（状态不为 "unknown"）；
+  2. 全新的官方程序状态为 "unpatched"；
+  3. 在临时副本上完成 patch -> "patched" -> restore -> "unpatched"
+     的完整流程（不会修改下载到的原始文件）。
 
-Только стандартная библиотека Python.
+仅使用 Python 标准库。
 
-Запуск из корня репозитория:
+在仓库根目录下运行：
     python test-agy/test_cli_releases.py
     python -m unittest discover -s test-agy -v
 
-Переменные окружения:
-    AGY_RELEASE_TAG - проверить конкретный тег вместо latest (например 1.2.7)
-    AGY_TEST_CACHE  - каталог для кэширования скачанных архивов между запусками
-    GITHUB_TOKEN    - токен для повышения лимита GitHub API (при rate limit)
+环境变量：
+    AGY_RELEASE_TAG - 检查指定标签而不是 latest（例如 1.2.7）
+    AGY_TEST_CACHE  - 用于在多次运行之间缓存下载压缩包的目录
+    GITHUB_TOKEN    - 用于提高 GitHub API 限额的令牌（遇到速率限制时使用）
 """
 import hashlib
 import json
@@ -36,8 +36,8 @@ import zipfile
 REPO = "google-antigravity/antigravity-cli"
 API_BASE = "https://api.github.com/repos/%s/releases" % REPO
 RELEASES_PAGE = "https://github.com/%s/releases" % REPO
-# Имена CLI-бинаря в архивах (официальные архивы содержат `antigravity[.exe]`,
-# установленные копии/расширение VS Code также используют `agy[.exe]`).
+# 压缩包中 CLI 程序的文件名（官方压缩包内为 `antigravity[.exe]`，
+# 已安装的副本/VS Code 扩展也会使用 `agy[.exe]`）。
 BINARY_NAMES = ("agy", "agy.exe", "antigravity", "antigravity.exe")
 USER_AGENT = "open-antigravity-patcher-compat-test"
 ARCHIVE_SUFFIXES = (".tar.gz", ".tgz", ".zip")
@@ -61,7 +61,7 @@ def _request_json(url):
 
 
 def _download(url, dest, expected_size=None, attempts=3):
-    """Скачать файл с повторами при сетевых сбоях."""
+    """下载文件，遇到网络故障时自动重试。"""
     error = None
     for _ in range(attempts):
         try:
@@ -102,7 +102,7 @@ def _safe_extract_tar(archive, dest):
         try:
             tf.extractall(dest, filter="data")
         except TypeError:
-            tf.extractall(dest)  # Python < 3.12 без параметра filter
+            tf.extractall(dest)  # Python < 3.12 不支持 filter 参数
 
 
 def _safe_extract_zip(archive, dest):
@@ -206,7 +206,7 @@ class CliReleaseCompatibilityTests(unittest.TestCase):
                          "archives without CLI binary: %s" % self.problems)
 
     def test_signatures_known_and_unpatched(self):
-        """Каждый официальный бинарь детектится гейтами как unpatched."""
+        """每个官方程序都应被 gate 识别为 unpatched。"""
         for asset, path in self.cases:
             with self.subTest(asset=asset):
                 status, _gate = agy.get_status(path)
@@ -219,7 +219,7 @@ class CliReleaseCompatibilityTests(unittest.TestCase):
                     "expected fresh 'unpatched' binary in %s, got %r" % (asset, status))
 
     def test_patch_roundtrip_on_copies(self):
-        """Patch -> patched -> restore -> unpatched на временных копиях."""
+        """在临时副本上验证 patch -> patched -> restore -> unpatched。"""
         for asset, path in self.cases:
             with self.subTest(asset=asset):
                 with open(path, "rb") as f:
@@ -231,7 +231,7 @@ class CliReleaseCompatibilityTests(unittest.TestCase):
                     with open(copy_path, "wb") as f:
                         f.write(original)
 
-                    # Применяем все гейты так же, как do_patch_agy.
+                    # 与 do_patch_agy 一样应用所有 gate。
                     patches = []
                     data = bytearray(original)
                     for gate_obj, label in agy.ALL_GATES:
@@ -257,7 +257,7 @@ class CliReleaseCompatibilityTests(unittest.TestCase):
                         agy.get_status(copy_path)[0], "patched",
                         "patched binary not detected for %s" % asset)
 
-                    # Откат побайтово в оригинал.
+                    # 按字节回滚到原始内容。
                     with open(copy_path, "wb") as f:
                         f.write(original)
                     with open(copy_path, "rb") as f:

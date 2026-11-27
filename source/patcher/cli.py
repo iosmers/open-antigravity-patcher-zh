@@ -305,7 +305,7 @@ def print_target_info(main_js_path, manager_path="", agy_path="", vscode_path=""
 
     print()
 
-    _kv("AGY 程序:", vscode_agy_path if vscode_agy_path else "未找到", COLOR_CYAN)
+    _kv("AGY程序:", vscode_agy_path if vscode_agy_path else "未找到", COLOR_CYAN)
     if vscode_agy_path and os.path.isfile(vscode_agy_path):
         _kv("状态:", "已找到", COLOR_GREEN)
         patched = is_agy_patched(vscode_agy_path)
@@ -467,7 +467,7 @@ def run_cli():
 
     # 3. 在系统中自动搜索
     if not main_js_path and not manager_path and not agy_path:
-        info("Searching for installations...")
+        info("正在搜索已安装的程序……")
         searched = True
 
         ide_root = find_install_root()
@@ -481,7 +481,7 @@ def run_cli():
     # 是否已找到（它是拥有独立目录的单独产品）。
     if not vscode_path or not vscode_agy_path:
         if not searched:
-            info("Searching for installations...")
+            info("正在搜索已安装的程序……")
         if not vscode_path:
             vscode_path = find_extension_js()
         if not vscode_agy_path:
