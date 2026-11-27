@@ -37,7 +37,7 @@ def _win_candidate_roots():
     if scoop:
         out.append(os.path.join(scoop, "apps"))
     
-    # Реестр
+    # 注册表
     try:
         import winreg
         hives = [(winreg.HKEY_CURRENT_USER, 'HKCU'), (winreg.HKEY_LOCAL_MACHINE, 'HKLM')]
@@ -95,17 +95,17 @@ def _posix_candidate_roots():
 
 
 def find_manager_binary():
-    """Ищет бинарный файл language_server (language_server.exe на Windows)."""
+    """查找 language_server 程序文件（Windows 上为 language_server.exe）。"""
     rel = os.path.join("resources", "bin", "language_server" + (".exe" if os.name == "nt" else ""))
     
-    # 1. Поиск в PATH через which
+    # 1. 通过 which 在 PATH 中查找
     w = shutil.which("language_server")
     if w:
         return w
         
     cands = []
     
-    # 2. Поиск в стандартных директориях
+    # 2. 在标准目录中查找
     if os.name == "nt":
         for root in _win_candidate_roots():
             cands += glob.glob(os.path.join(root, "*ntigravity*", rel))
@@ -117,8 +117,8 @@ def find_manager_binary():
         for root in _posix_candidate_roots():
             cands += glob.glob(os.path.join(root, "*ntigravity*", rel))
             cands += glob.glob(os.path.join(root, "*ntigravity*", "*", rel))
-            # macOS .app support (Resources встречается и как resources —
-            # см. /Applications/Antigravity.app/Contents/resources/bin/language_server)
+            # 支持 macOS .app（Resources 也可能写作小写 resources ——
+            # 参见 /Applications/Antigravity.app/Contents/resources/bin/language_server）
             if sys.platform == "darwin":
                 cands += glob.glob(os.path.join(root, "*ntigravity*.app", "Contents", "Resources", "bin", "language_server"))
                 cands += glob.glob(os.path.join(root, "*ntigravity*.app", "Contents", "resources", "bin", "language_server"))
@@ -149,7 +149,7 @@ def resolve_manager_path(raw_path):
         path1 = os.path.join(resolved, rel)
         if os.path.isfile(path1):
             return path1
-        # macOS app contents (Resources/resources — разный регистр в сборках)
+        # macOS 应用包内容（Resources/resources —— 不同构建的大小写不一致）
         if sys.platform == "darwin":
             for sub in ("Contents/Resources/bin/language_server", "Contents/resources/bin/language_server"):
                 path2 = os.path.join(resolved, sub)

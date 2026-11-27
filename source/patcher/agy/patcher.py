@@ -35,8 +35,8 @@ BAK_EXT = ".agybak"
 
 
 # ----------------------------------------------------------------------- Gate --
-# Байт-сигнатурный патчинг машинного кода Go-бинаря agy/agy.exe.
-# Сигнатуры используют re.S, чтобы '.' захватывала также displacement-байт 0x0a.
+# 基于字节特征码对 Go 编译的 agy/agy.exe 机器码打补丁。
+# 特征码使用 re.S，使 '.' 也能匹配位移字节 0x0a。
 class Gate:
     def __init__(self, sig, patched, fix, offset=0, desc=""):
         self.sig = re.compile(sig, re.S)
@@ -46,10 +46,10 @@ class Gate:
         self.desc = desc
 
     def find(self, data):
-        """('patched'|'unpatched', [file offsets to write at]).
-        LookupError, если сигнатура отсутствует (неизвестный билд).
-        Несколько unpatched-вхождений допустимы — патчим все (Go может
-        компилировать одну функцию в нескольких экземплярах)."""
+        """返回 ('patched'|'unpatched', [需要写入的文件偏移列表])。
+        若特征码不存在（未知版本），抛出 LookupError。
+        允许出现多个 unpatched 匹配 —— 全部修补（Go 可能
+        把同一个函数编译成多个副本）。"""
         patched_offsets = [m.start() + self.offset for m in self.patched.finditer(data)]
         if patched_offsets:
             return ("patched", patched_offsets)
@@ -66,7 +66,7 @@ class Gate:
         return kind, offsets, self
 
     def resolve_all(self, data):
-        """[(kind, [write-offsets], concrete-gate)] — из одного элемента для Gate."""
+        """返回 [(kind, [写入偏移], 具体 gate)] —— 对 Gate 而言只有一个元素。"""
         return [self.resolve(data)]
 
 
@@ -84,8 +84,8 @@ class MultiGate:
         self.desc = desc
 
     def resolve_all(self, data):
-        """All matching sub-gates as [(kind, [write-offsets], concrete-gate)].
-        LookupError, если ни одна сигнатура не подошла (неизвестный билд)."""
+        """返回所有匹配的子 gate，形式为 [(kind, [写入偏移], 具体 gate)]。
+        若没有任何特征码匹配（未知版本），抛出 LookupError。"""
         matches = []
         err = None
         for g in self.gates:
@@ -99,12 +99,12 @@ class MultiGate:
 
 
 # ---------------------------------------------------------------------------
-# Gate 1: CLI eligibility screen (единственный гейт начальной проверки).
+# Gate 1：CLI 资格校验拦截（初始检查的唯一关卡）。
 # x64:
 #   test rax,rax ; je eligible ; cmp byte[rax+8],0 ; jne eligible ; call failure_builder
 # Repeating the non-null test keeps ZF=0, so jne always selects eligible.
-# Сигнатура ограничена 16-байтным ядром проверки: хвост (call + register spills)
-# варьируется между сборками, поэтому в паттерн не включается.
+# 特征码仅限定于检查逻辑的 16 字节核心：尾部（call + 寄存器溢出）
+# 在不同构建间存在差异，因此不纳入匹配模式。
 CLI_GATE_X64 = Gate(
     rb"\x48\x85\xc0\x0f\x84....\x80\x78\x08\x00\x0f\x85....",
     rb"\x48\x85\xc0\x0f\x84....\x48\x85\xc0\x90\x0f\x85....",
@@ -116,9 +116,9 @@ CLI_GATE_X64 = Gate(
 #   cbnz x1,error ; cbz x0,eligible ; ldrb w1,[x0,#8] ; tbnz w1,#0,eligible
 #   bl failure_builder + spills.
 # Loading 1 instead makes tbnz always select eligible.
-# Единый строгий гейт покрывает оба известных хвоста:
-#   - классика: x0/x1/x2 -> [sp,#0x90]/[sp,#0x60]/[sp,#0x80]
-#   - macOS-билд: x0/x1/x2/x3 -> [sp,#0x98]/[sp,#0x60]/[sp,#0x88]/[sp,#0x58]
+# 单个严格的 gate 可覆盖两种已知的尾部形式：
+#   - 经典形式：x0/x1/x2 -> [sp,#0x90]/[sp,#0x60]/[sp,#0x80]
+#   - macOS 构建：x0/x1/x2/x3 -> [sp,#0x98]/[sp,#0x60]/[sp,#0x88]/[sp,#0x58]
 CLI_GATE_ARM64 = Gate(
     rb"...\xb5...\xb4\x01\x20\x40\x39[\x01\x21\x41\x61\x81\xa1\xc1\xe1].[\x00-\x07]\x37"
     rb"...[\x94-\x97](?:\xe0\x4b\x00\xf9\xe1\x33\x00\xf9\xe2\x43\x00\xf9"
@@ -130,14 +130,14 @@ CLI_GATE_ARM64 = Gate(
     offset=8,
     desc="eligibility screen off (arm64)",
 )
-# arm64 (CLI 1.2.7+): проверка перекомпилирована — внешний cbnz исчез,
-# флаг читается в w4, а за tbnz идёт ldp вместо bl+spills:
+# arm64（CLI 1.2.7+）：检查逻辑被重新编译 —— 外层 cbnz 消失，
+# 标志位读入 w4，且 tbnz 之后是 ldp 而不是 bl+溢出：
 #   cbz x0,eligible ; ldrb w4,[x0,#8] ; tbnz w4,#0,eligible
 #   ldp x4,x5,[x0,#0x48] ...
-# mov w4,#1 заставляет существующий tbnz всегда выбирать ветку eligible.
-# Отдельный гейт: фикс зависит от регистра (w4, не w1), в один паттерн
-# со старым не объединяется. Сигнатура строгая: ровно одно вхождение
-# в linux/mac/windows arm64-билдрах 1.2.7 (проверено тестом test_cli_releases).
+# mov w4,#1 使现有的 tbnz 始终选择 eligible 分支。
+# 之所以单独设一个 gate：修补字节依赖寄存器（是 w4 而非 w1），无法
+# 与旧模式合并。特征码很严格：在 1.2.7 的 linux/mac/windows arm64
+# 构建中恰好只有一处匹配（已由 test_cli_releases 测试验证）。
 CLI_GATE_ARM64_W4 = Gate(
     rb"[\x00\x20\x40\x60\x80\xa0\xc0\xe0]..\xb4\x04\x20\x40\x39"
     rb"[\x04\x24\x44\x64\x84\xa4\xc4\xe4].[\x00-\x07]\x37\x04\x94\x44\xa9",
@@ -147,12 +147,12 @@ CLI_GATE_ARM64_W4 = Gate(
     offset=4,
     desc="eligibility screen off (arm64, w4)",
 )
-# arm64 (CLI 1.2.7+, инлайн-проверка в функции экрана) — главный гейт экрана,
-# без него экран "Eligibility check failed:" выживает даже с пропатченным w4:
+# arm64（CLI 1.2.7+，拦截函数中的内联检查）—— 拦截界面的主 gate，
+# 缺少它时即使修补了 w4，"Eligibility check failed:" 界面仍会出现：
 #   cbnz x1,? ; cbz x0,eligible ; ldrb w2,[x0,#8] ; tbnz w2,#0,eligible
 #   bl check_helper ...
-# mov w2,#1 заставляет tbnz сразу уходить в eligible, не вызывая хелпер.
-# Сигнатура строгая: ровно одно вхождение в linux/mac/windows arm64 1.2.7.
+# mov w2,#1 使 tbnz 直接跳转到 eligible，不再调用辅助函数。
+# 特征码很严格：在 1.2.7 的 linux/mac/windows arm64 中恰好只有一处匹配。
 CLI_GATE_ARM64_W2 = Gate(
     rb"[\x01\x21\x41\x61\x81\xa1\xc1\xe1]..\xb5[\x00\x20\x40\x60\x80\xa0\xc0\xe0]..\xb4"
     rb"\x02\x20\x40\x39[\x02\x22\x42\x62\x82\xa2\xc2\xe2].[\x00-\x07]\x37...[\x94-\x97]",
@@ -196,10 +196,10 @@ def _scan_data(f):
 
 @contextlib.contextmanager
 def _mapped(path):
-    """Read-only bytes-view для сканирования сигнатур.
+    """用于扫描特征码的只读字节视图。
 
-    На macOS не маппит страницы подписанного файла (SIGKILL-риск),
-    а читает через _scan_data; на остальных ОС — zero-copy mmap."""
+    在 macOS 上不对已签名文件做内存映射（有 SIGKILL 风险），
+    而是通过 _scan_data 读取；其他系统使用零拷贝 mmap。"""
     with open(path, "rb") as f:
         with _scan_data(f) as data:
             yield data
@@ -207,14 +207,14 @@ def _mapped(path):
 
 def is_locked(path):
     """
-    True, если файл занят (приложение запущено).
+    若文件被占用（应用正在运行）则返回 True。
 
-    На POSIX замена файла через os.replace возможна даже при работающем процессе,
-    поэтому блокирующим считаем только Windows.
+    在 POSIX 上即使进程正在运行，也可以通过 os.replace 替换文件，
+    因此只有 Windows 才视为会被锁定。
 
-    Примечание: на POSIX это не гарантирует, что файл не используется.
-    Если нужна проверка на занятость, требуется более сложная логика
-    (например, проверка процессов или файловые блокировки).
+    注意：在 POSIX 上这并不能保证文件未被使用。
+    如果确实需要判断占用情况，需要更复杂的逻辑
+    （例如检查进程或文件锁）。
     """
     if os.name != "nt":
         return False
@@ -227,8 +227,8 @@ def is_locked(path):
 
 
 def get_status(path):
-    """('patched'|'unpatched'|'unknown', None) — без исключений наружу.
-    'patched' только если ВСЕ гейты применены."""
+    """返回 ('patched'|'unpatched'|'unknown', None) —— 不向外抛出异常。
+    只有当所有 gate 均已应用时才返回 'patched'。"""
     if not path or not os.path.isfile(path):
         return ("unknown", None)
     try:
@@ -244,28 +244,28 @@ def get_status(path):
                 return ("patched", None)
             if all(s == "unpatched" for s in states):
                 return ("unpatched", None)
-            return ("unpatched", None)  # частично применён — считаем unpatched
+            return ("unpatched", None)  # 部分应用 —— 视为 unpatched
     except OSError:
         return ("unknown", None)
 
 
 def is_already_patched(path):
-    """Совместимый с IDE/asar интерфейс: True только если патч уже применён."""
+    """与 IDE/asar 兼容的接口：仅当补丁已应用时返回 True。"""
     return get_status(path)[0] == "patched"
 
 
 def _make_backup(path):
-    """Снимок чистого файла как <path>.agybak.
-    Вызывается только когда файл unpatched — живые байты это pristine-оригинал.
-    Бэкап, не совпадающий с файлом, устарел (приложение автообновилось) —
-    обновляем его, а не храним."""
+    """把干净的文件快照保存为 <path>.agybak。
+    仅在文件处于 unpatched 状态时调用 —— 此时的字节就是原始内容。
+    与当前文件不一致的备份说明已过期（应用自动更新过）——
+    此时刷新备份，而不是继续保留旧的。"""
     bak = path + BAK_EXT
     if os.path.exists(bak):
         if filecmp.cmp(path, bak, shallow=False):
-            return  # бэкап уже соответствует этому билду
-        info(f"Backup is stale (app updated) — refreshing {os.path.basename(path)}{BAK_EXT}")
+            return  # 备份已与当前构建一致
+        info(f"备份已过期（应用已更新）—— 正在刷新 {os.path.basename(path)}{BAK_EXT}")
     else:
-        info(f"Creating backup -> {os.path.basename(path)}{BAK_EXT}")
+        info(f"正在创建备份 -> {os.path.basename(path)}{BAK_EXT}")
     if sys.platform == "darwin":
         ensure_macos_writable(path)
     try:
@@ -277,13 +277,13 @@ def _make_backup(path):
             and e.errno in (errno.EPERM, errno.EACCES)
         )
         if need_retry:
-            warn("Backup blocked by macOS flags, retrying after removing flags...")
+            warn("备份被 macOS 文件标志阻止，正在移除标志后重试……")
             ensure_macos_writable(path)
             shutil.copy2(path, bak)
         else:
             raise
     fix_posix_permissions(bak)
-    ok(f"Backup: {os.path.basename(bak)} ({format_bytes(file_size(bak))})")
+    ok(f"备份：{os.path.basename(bak)}（{format_bytes(file_size(bak))}）")
 
 
 def _copy_to_user_bin(path):
@@ -293,7 +293,7 @@ def _copy_to_user_bin(path):
     dest_path = os.path.join(dest_dir, "agy")
     if os.path.abspath(path) == os.path.abspath(dest_path):
         return
-    info(f"Storing file in user system folder -> {dest_path}")
+    info(f"正在将文件保存到用户目录 -> {dest_path}")
     try:
         os.makedirs(dest_dir, exist_ok=True)
         if os.path.exists(dest_path):
@@ -303,9 +303,9 @@ def _copy_to_user_bin(path):
                 pass
         shutil.copy2(path, dest_path)
         os.chmod(dest_path, 0o755)
-        ok(f"File successfully copied to: {dest_path}")
+        ok(f"文件已成功复制到：{dest_path}")
     except Exception as e:
-        warn(f"Could not copy file to {dest_path}: {e}")
+        warn(f"无法将文件复制到 {dest_path}：{e}")
 
 
 def do_patch_agy(path):
@@ -318,25 +318,25 @@ def do_patch_agy(path):
         return
 
     hash_before = file_hash(path)
-    info(f"Target: {color(path, COLOR_CYAN)}")
-    hint(f"Size: {color(format_bytes(file_size(path)), COLOR_CYAN)}")
+    info(f"目标：{color(path, COLOR_CYAN)}")
+    hint(f"大小：{color(format_bytes(file_size(path)), COLOR_CYAN)}")
     print()
 
     write_success = False
-    patches = []  # [(offset, gate), ...] — гейты, требующие записи
+    patches = []  # [(offset, gate), ...] —— 需要写入的 gate
     for attempt in range(2):
         if is_locked(path):
             if attempt == 0:
-                warn("Binary is locked (Antigravity CLI is running).")
-                if confirmed("Would you like to automatically close running agy processes and retry?"):
+                warn("程序文件被占用（Antigravity CLI 正在运行）。")
+                if confirmed("是否自动关闭正在运行的 agy 进程并重试？"):
                     terminate_processes(["agy"])
                     import time
                     time.sleep(1.5)
                     continue
-            err("File is locked — close Antigravity CLI first.")
+            err("文件被占用 —— 请先关闭 Antigravity CLI。")
             return
 
-        # Сканируем в mmap, закрываем ДО записи (zero-copy scan)
+        # 在 mmap 中扫描，并在写入之前关闭（零拷贝扫描）
         patches = []
         try:
             with _mapped(path) as d:
@@ -345,7 +345,7 @@ def do_patch_agy(path):
                     try:
                         matches = gate_obj.resolve_all(d)
                     except LookupError as e:
-                        err(f"{gate_label}: {e}")
+                        err(f"{gate_label}：{e}")
                         handle_patch_failure()
                         return
                     for kind, offsets, g in matches:
@@ -354,17 +354,17 @@ def do_patch_agy(path):
                             for off in offsets:
                                 patches.append((off, g))
                 if all_patched:
-                    hint("agy already patched (all gates).")
-                    if not confirm_with_captcha("Apply patch anyway?"):
+                    hint("agy 已打过补丁（所有 gate 均已应用）。")
+                    if not confirm_with_captcha("仍要应用补丁吗？"):
                         return
-                    # re-patch: перезаписываем все гейты
+                    # 重新打补丁：重写所有 gate
                     patches = []
                     for gate_obj, _ in ALL_GATES:
                         for _kind, offsets, g in gate_obj.resolve_all(d):
                             for off in offsets:
                                 patches.append((off, g))
         except OSError as e:
-            err(f"Read error: {e}")
+            err(f"读取错误：{e}")
             return
 
         if not patches:
@@ -373,19 +373,19 @@ def do_patch_agy(path):
         try:
             _make_backup(path)
         except (PermissionError, OSError) as e:
-            err(f"Backup error: {e}")
+            err(f"备份错误：{e}")
             if sys.platform == "darwin":
-                hint("macOS blocked writing (Errno 1 Operation not permitted).")
-                hint("Close Antigravity, then re-run the patcher with sudo:")
-                hint("  sudo python main.py   (or sudo ./Open_AG_Patcher)")
+                hint("macOS 阻止了写入（Errno 1 Operation not permitted）。")
+                hint("请关闭 Antigravity，然后使用 sudo 重新运行本工具：")
+                hint("  sudo python main.py   （或 sudo ./Open_AG_Patcher）")
             else:
-                hint("No write access — re-run as admin/root and close agy first.")
+                hint("没有写入权限 —— 请先关闭 agy，并以管理员/root 身份重新运行。")
             handle_patch_failure()
             return
 
         try:
             if os.name == "nt":
-                # Windows: прямая запись с проверкой блокировки
+                # Windows：直接写入，并检查锁定状态
                 with open(path, "r+b") as f:
                     bdata = bytearray(f.read())
                     bdata = apply_patches_to_data(bdata, patches)
@@ -394,13 +394,13 @@ def do_patch_agy(path):
                     f.flush()
                     os.fsync(f.fileno())
             else:
-                # POSIX: атомарная замена через временный файл
+                # POSIX：通过临时文件进行原子替换
                 with open(path, "rb") as f:
                     bdata = bytearray(f.read())
 
                 bdata = apply_patches_to_data(bdata, patches)
 
-                # Атомарная замена с безопасным временным файлом
+                # 使用安全的临时文件进行原子替换
                 if sys.platform == "darwin":
                     ensure_macos_writable(path)
                 atomic_replace_posix(path, bytes(bdata))
@@ -410,34 +410,34 @@ def do_patch_agy(path):
         except PermissionError as e:
             if attempt == 0:
                 if sys.platform == "darwin":
-                    warn(f"Write blocked by macOS (flags/owner): {e}")
+                    warn(f"写入被 macOS 阻止（文件标志/属主）：{e}")
                     ensure_macos_writable(path)
                     import time
                     time.sleep(0.5)
                     continue
-                warn(f"Permission denied (file locked): {e}")
-                if confirmed("Would you like to automatically close running agy processes and retry?"):
+                warn(f"权限被拒绝（文件被占用）：{e}")
+                if confirmed("是否自动关闭正在运行的 agy 进程并重试？"):
                     terminate_processes(["agy"])
                     import time
                     time.sleep(1.5)
                     continue
-            err(f"Write error (Permission denied): {e}")
+            err(f"写入错误（权限被拒绝）：{e}")
             if sys.platform == "darwin":
-                hint("Close Antigravity and re-run with sudo: sudo python main.py")
+                hint("请关闭 Antigravity 并使用 sudo 重新运行：sudo python main.py")
             handle_patch_failure()
             return
         except OSError as e:
             if e.errno in (errno.EPERM, errno.EACCES) and attempt == 0 and sys.platform == "darwin":
-                warn(f"Write blocked by macOS (flags/owner): {e}")
+                warn(f"写入被 macOS 阻止（文件标志/属主）：{e}")
                 ensure_macos_writable(path)
                 import time
                 time.sleep(0.5)
                 continue
-            err(f"Write error: {e}")
+            err(f"写入错误：{e}")
             handle_patch_failure()
             return
         except Exception as e:
-            err(f"Write error: {e}")
+            err(f"写入错误：{e}")
             handle_patch_failure()
             return
 
@@ -451,45 +451,45 @@ def do_patch_agy(path):
     if os.name == "posix":
         _copy_to_user_bin(path)
     print()
-    step("Patch agy binary", True, f"{len(patches)} gate(s)")
+    step("修补 agy 程序", True, f"{len(patches)} 个 gate")
     print()
     panel_rows = [
-        ("Target", os.path.basename(path)),
+        ("目标", os.path.basename(path)),
     ]
     for off, g in patches:
         panel_rows.append(("Gate", f"{g.desc} @ 0x{off:x}"))
     if hash_before and hash_after:
-        panel_rows.append(("Before", f"{hash_before[:8]}...{hash_before[56:]}"))
-        panel_rows.append(("After", f"{hash_after[:8]}...{hash_after[56:]}"))
-    print_panel("PATCH COMPLETE", panel_rows)
-    hint("Restart Antigravity CLI for the change to take effect.")
+        panel_rows.append(("修补前", f"{hash_before[:8]}...{hash_before[56:]}"))
+        panel_rows.append(("修补后", f"{hash_after[:8]}...{hash_after[56:]}"))
+    print_panel("打补丁完成", panel_rows)
+    hint("请重启 Antigravity CLI 以使更改生效。")
 
 
 def do_restore_agy(path):
     from patcher.cli import confirmed
 
     if not os.path.isfile(path):
-        err(f"Target is not a file: {path}")
+        err(f"目标不是文件：{path}")
         return
 
     bak = path + BAK_EXT
     if not os.path.exists(bak):
-        warn(f"No backup for {os.path.basename(path)} (nothing to restore).")
+        warn(f"{os.path.basename(path)} 没有备份（无内容可还原）。")
         return
 
     status, _ = get_status(path)
     if status != "patched":
-        warn("agy is not patched — skipping restore (backup may be a different build).")
-        if not confirmed("Restore from backup anyway?"):
-            hint("Restore cancelled.")
+        warn("agy 未打补丁 —— 跳过还原（备份可能来自其他版本）。")
+        if not confirmed("仍要从备份还原吗？"):
+            hint("已取消还原。")
             return
 
     if is_locked(path):
-        err("Binary is locked — close Antigravity CLI first.")
+        err("程序文件被占用 —— 请先关闭 Antigravity CLI。")
         return
 
-    if not confirmed("Restore agy from backup?"):
-        hint("Restore cancelled.")
+    if not confirmed("是否从备份还原 agy？"):
+        hint("已取消还原。")
         return
 
     hash_before = file_hash(path)
@@ -497,16 +497,16 @@ def do_restore_agy(path):
         if os.name == "nt":
             shutil.copy2(bak, path)
         else:
-            # Читаем бэкап в память
+            # 将备份读入内存
             with open(bak, "rb") as f:
                 bak_data = f.read()
 
-            # Атомарная замена с метаданными из бэкапа
+            # 使用备份的元数据进行原子替换
             atomic_replace_posix(path, bak_data, meta_source=bak)
 
         fix_posix_permissions(path)
     except Exception as e:
-        err(f"Restore error: {e}")
+        err(f"还原错误：{e}")
         return
 
     hash_after = file_hash(path)
@@ -515,8 +515,8 @@ def do_restore_agy(path):
     if os.name == "posix":
         _copy_to_user_bin(path)
     print()
-    panel_rows = [("Target", os.path.basename(path))]
+    panel_rows = [("目标", os.path.basename(path))]
     if hash_before and hash_after and hash_before != hash_after:
-        panel_rows.append(("Before", f"{hash_before[:8]}...{hash_before[56:]}"))
-        panel_rows.append(("After", f"{hash_after[:8]}...{hash_after[56:]}"))
-    print_panel("RESTORE COMPLETE", panel_rows)
+        panel_rows.append(("修补前", f"{hash_before[:8]}...{hash_before[56:]}"))
+        panel_rows.append(("修补后", f"{hash_after[:8]}...{hash_after[56:]}"))
+    print_panel("还原完成", panel_rows)
