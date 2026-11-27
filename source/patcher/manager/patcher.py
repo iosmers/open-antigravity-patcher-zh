@@ -208,9 +208,9 @@ def _make_backup(path):
     if os.path.exists(bak):
         if filecmp.cmp(path, bak, shallow=False):
             return
-        info(f"Backup is stale (app updated) — refreshing {os.path.basename(path)}{BAK_EXT}")
+        info(f"备份已过期（应用已更新） —— 正在刷新 {os.path.basename(path)}{BAK_EXT}")
     else:
-        info(f"Creating backup -> {os.path.basename(path)}{BAK_EXT}")
+        info(f"正在创建备份 -> {os.path.basename(path)}{BAK_EXT}")
     if sys.platform == "darwin":
         # .app 包内的文件常带有 uchg 标志：若未先执行 chflags，
         # 即使是 root 在 copy2 时也会收到 Errno 1 Operation not permitted。
@@ -227,13 +227,13 @@ def _make_backup(path):
             and e.errno in (errno.EPERM, errno.EACCES)
         )
         if need_retry:
-            warn("Backup blocked by macOS flags, retrying after removing flags...")
+            warn("备份被 macOS 文件标志阻止，正在移除标志后重试……")
             ensure_macos_writable(path)
             shutil.copy2(path, bak)
         else:
             raise
     fix_posix_permissions(bak)
-    ok(f"Backup: {os.path.basename(bak)} ({format_bytes(file_size(bak))})")
+    ok(f"备份：{os.path.basename(bak)} ({format_bytes(file_size(bak))})")
 
 
 def do_patch_manager(path):
@@ -246,26 +246,26 @@ def do_patch_manager(path):
         return
 
     hash_before = file_hash(path)
-    info(f"Target: {color(path, COLOR_CYAN)}")
-    hint(f"Size: {color(format_bytes(file_size(path)), COLOR_CYAN)}")
+    info(f"目标：{color(path, COLOR_CYAN)}")
+    hint(f"大小：{color(format_bytes(file_size(path)), COLOR_CYAN)}")
 
     # 检查 Antigravity 版本（从 app.asar 中的 package.json 读取）
     asar_path = find_asar_relative_to_manager(path)
     if asar_path:
         ver_status, ver_str = check_antigravity_version(asar_path)
         if ver_status == VersionStatus.TOO_OLD:
-            err(f"Unsupported version: {ver_str}")
-            err(f"Minimum required: {MIN_ANTIGRAVITY_VERSION}")
-            hint("Please update Antigravity and try again.")
-            if not confirmed("Proceed anyway?"):
+            err(f"不支持的版本：{ver_str}")
+            err(f"最低要求版本：{MIN_ANTIGRAVITY_VERSION}")
+            hint("请更新 Antigravity 后重试。")
+            if not confirmed("仍要继续吗？"):
                 return
         elif ver_status == VersionStatus.NOT_FOUND:
-            warn("Could not detect Antigravity version (package.json not found in ASAR).")
-            if not confirmed("Proceed without version check?"):
+            warn("无法检测 Antigravity 版本（ASAR 中未找到 package.json）。")
+            if not confirmed("是否跳过版本检查继续？"):
                 return
         elif ver_status == VersionStatus.PARSE_ERROR:
-            warn(f"Could not parse version string: {ver_str}")
-            if not confirmed("Proceed anyway?"):
+            warn(f"无法解析版本号：{ver_str}")
+            if not confirmed("仍要继续吗？"):
                 return
     print()
 
@@ -274,13 +274,13 @@ def do_patch_manager(path):
     for attempt in range(2):
         if is_locked(path):
             if attempt == 0:
-                warn("Binary is locked (Antigravity Manager is running).")
-                if confirmed("Would you like to automatically close running Antigravity processes and retry?"):
+                warn("程序被占用（Antigravity Manager 正在运行）。")
+                if confirmed("是否自动关闭正在运行的 Antigravity 进程并重试？"):
                     terminate_processes(["Antigravity", "Antigravity IDE", "antigravity", "antigravity-ide", "language_server"])
                     import time
                     time.sleep(1.5)
                     continue
-            err("File is locked — close the app first.")
+            err("文件被占用 —— 请先关闭该应用。")
             return
 
         matched_gate = None
@@ -293,24 +293,24 @@ def do_patch_manager(path):
                     handle_patch_failure()
                     return
                 if kind == "patched":
-                    hint("Antigravity Manager already patched.")
-                    if not confirm_with_captcha("Apply patch anyway?"):
+                    hint("Antigravity Manager 已打过补丁。")
+                    if not confirm_with_captcha("仍要应用补丁吗？"):
                         return
         except OSError as e:
-            err(f"Read error: {e}")
+            err(f"读取出错：{e}")
             return
 
         try:
             _make_backup(path)
         except (PermissionError, OSError) as e:
-            err(f"Backup error: {e}")
+            err(f"备份出错：{e}")
             if sys.platform == "darwin":
-                hint("macOS blocked writing inside Antigravity.app (Errno 1 Operation not permitted).")
-                hint("Close Antigravity, then re-run the patcher with sudo:")
-                hint("  sudo python main.py   (or sudo ./Open_AG_Patcher)")
-                hint("If it still fails: ls -lO shows 'uchg' flag -> patcher already tried 'chflags nouchg'.")
+                hint("macOS 阻止了对 Antigravity.app 内部的写入（Errno 1 Operation not permitted）。")
+                hint("请关闭 Antigravity，然后用 sudo 重新运行补丁工具：")
+                hint("  sudo python main.py   （或 sudo ./Open_AG_Patcher）")
+                hint("如果仍然失败：ls -lO 显示 'uchg' 标志 -> 补丁工具已尝试执行 'chflags nouchg'。")
             else:
-                hint("No write access — re-run as admin/root and close Antigravity first.")
+                hint("没有写入权限 —— 请以管理员/root 身份重新运行，并先关闭 Antigravity。")
             handle_patch_failure()
             return
 
@@ -346,35 +346,35 @@ def do_patch_manager(path):
         except PermissionError as e:
             if attempt == 0:
                 if sys.platform == "darwin":
-                    warn(f"Write blocked by macOS (flags/owner): {e}")
+                    warn(f"macOS 阻止了写入（文件标志/所有者）：{e}")
                     ensure_macos_writable(path)
                     import time
                     time.sleep(0.5)
                     continue
-                warn(f"Permission denied (file locked): {e}")
-                if confirmed("Would you like to automatically close running processes and retry?"):
+                warn(f"权限不足（文件被占用）：{e}")
+                if confirmed("是否自动关闭正在运行的进程并重试？"):
                     terminate_processes(["Antigravity", "Antigravity IDE", "antigravity", "antigravity-ide", "language_server"])
                     import time
                     time.sleep(1.5)
                     continue
-            err(f"Write error (Permission denied): {e}")
+            err(f"写入出错（权限不足）：{e}")
             if sys.platform == "darwin":
-                hint("Close Antigravity and re-run with sudo: sudo python main.py")
+                hint("请关闭 Antigravity，并用 sudo 重新运行：sudo python main.py")
             handle_patch_failure()
             return
         except OSError as e:
             # 以防出现不属于 PermissionError 的 EPERM —— 同样给出 sudo/标志相关提示
             if e.errno in (errno.EPERM, errno.EACCES) and attempt == 0 and sys.platform == "darwin":
-                warn(f"Write blocked by macOS (flags/owner): {e}")
+                warn(f"macOS 阻止了写入（文件标志/所有者）：{e}")
                 ensure_macos_writable(path)
                 import time
                 time.sleep(0.5)
                 continue
-            err(f"Write error: {e}")
+            err(f"写入出错：{e}")
             handle_patch_failure()
             return
         except Exception as e:
-            err(f"Write error: {e}")
+            err(f"写入出错：{e}")
             handle_patch_failure()
             return
 
@@ -396,34 +396,34 @@ def do_patch_manager(path):
         panel_rows.append(("Before", f"{hash_before[:8]}...{hash_before[56:]}"))
         panel_rows.append(("After", f"{hash_after[:8]}...{hash_after[56:]}"))
     print_panel("PATCH COMPLETE", panel_rows)
-    hint("Restart Antigravity/Antigravity IDE for the changes to take effect.")
+    hint("请重启 Antigravity/Antigravity IDE 使改动生效。")
 
 
 def do_restore_manager(path):
     from patcher.cli import confirmed
 
     if not os.path.isfile(path):
-        err(f"Target is not a file: {path}")
+        err(f"目标不是文件：{path}")
         return
 
     bak = path + BAK_EXT
     if not os.path.exists(bak):
-        warn(f"No backup for {os.path.basename(path)} (nothing to restore).")
+        warn(f"以下目标没有备份：{os.path.basename(path)}（无需还原）。")
         return
 
     status, _ = get_status(path)
     if status != "patched":
-        warn("Manager is not patched — skipping restore (backup may be a different build).")
-        if not confirmed("Restore from backup anyway?"):
-            hint("Restore cancelled.")
+        warn("Manager 未打补丁 —— 跳过还原（备份可能是其他构建版本）。")
+        if not confirmed("仍要从备份还原吗？"):
+            hint("已取消还原。")
             return
 
     if is_locked(path):
-        err("Binary is locked — close the app first.")
+        err("程序被占用 —— 请先关闭该应用。")
         return
 
-    if not confirmed("Restore Manager from backup?"):
-        hint("Restore cancelled.")
+    if not confirmed("是否从备份还原 Manager？"):
+        hint("已取消还原。")
         return
 
     hash_before = file_hash(path)
@@ -440,7 +440,7 @@ def do_restore_manager(path):
 
         fix_posix_permissions(path)
     except Exception as e:
-        err(f"Restore error: {e}")
+        err(f"还原出错：{e}")
         return
 
     hash_after = file_hash(path)

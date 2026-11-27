@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# PyInstaller
+*.spec
+
+# 备份 / 打补丁产生的临时文件
+*.bak
+*.agybak
+*.vscbak
+*.mgrbak
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 编辑器
+.idea/
+.vscode/

@@ -142,9 +142,9 @@ def find_portable_candidates(search_type="ide"):
                                 candidates.append(dirpath)
                                 label = "Antigravity IDE"
                                 try:
-                                    ok(f"Found portable {label} at: {dirpath}")
+                                    ok(f"已找到便携版 {label} at: {dirpath}")
                                 except Exception:
-                                    print(f"  [+] Found portable {label} at: {dirpath}")
+                                    print(f"  [+] 已找到便携版 {label} at: {dirpath}")
                                 break
                 elif search_type == "antigravity":
                     # 查找 Antigravity 的特征
@@ -154,9 +154,9 @@ def find_portable_candidates(search_type="ide"):
                             candidates.append(dirpath)
                             label = "Antigravity"
                             try:
-                                ok(f"Found portable {label} at: {dirpath}")
+                                ok(f"已找到便携版 {label} at: {dirpath}")
                             except Exception:
-                                print(f"  [+] Found portable {label} at: {dirpath}")
+                                print(f"  [+] 已找到便携版 {label} at: {dirpath}")
 
     return candidates
 

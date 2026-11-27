@@ -54,5 +54,5 @@ if __name__ == "__main__":
         sys.exit(1)
     except Exception as e:
         print(f"\n  [!] 未预期的错误：{e}")
-        print("  [i] 请反馈问题：https://github.com/AvenCores/open-antigravity-unlock/issues")
+        print("  [i] 请反馈问题：https://github.com/iosmers/open-antigravity-patcher-zh/issues")
         sys.exit(1)

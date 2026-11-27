@@ -104,7 +104,7 @@ def warn_about_unsafe_backup(main_js_path, installed_version_str=None, current_c
                     f"backup size is only {format_bytes(backup_size)} and it looks almost empty"
                 )
         except Exception as e:
-            warn(f"Backup check error: {e}")
+            warn(f"备份检查出错：{e}")
             return False, False
     elif backup_size < 4096 or (current_size > 0 and backup_size < current_size // 10):
         warnings.append(
@@ -116,9 +116,9 @@ def warn_about_unsafe_backup(main_js_path, installed_version_str=None, current_c
         return True, False
 
     for warning in warnings:
-        warn(f"Backup warning: {warning}")
-    warn("Restoring this backup may break Antigravity IDE.")
-    warn(f"Backup kept: {os.path.basename(backup_path)}")
+        warn(f"备份警告：{warning}")
+    warn("还原此备份可能导致 Antigravity IDE 无法正常工作。")
+    warn(f"已保留备份：{os.path.basename(backup_path)}")
     return True, True
 
 
@@ -135,18 +135,18 @@ def do_patch(main_js_path, show_search_line=False):
     parsed_version = parse_version_safe(ver_str)
 
     if ver_status == VersionStatus.TOO_OLD:
-        err(f"Unsupported version: {ver_str}")
-        err(f"Minimum required: {MIN_AG_VERSION}")
-        hint("Please update Antigravity IDE and try again.")
-        if not confirmed("Proceed anyway?"):
+        err(f"不支持的版本：{ver_str}")
+        err(f"最低要求版本：{MIN_AG_VERSION}")
+        hint("请更新 Antigravity IDE 后重试。")
+        if not confirmed("仍要继续吗？"):
             return
     elif ver_status == VersionStatus.NOT_FOUND:
-        warn("Could not detect Antigravity IDE version (registry key not found).")
-        if not confirmed("Proceed without version check?"):
+        warn("无法检测 Antigravity IDE 版本（未找到注册表项）。")
+        if not confirmed("是否跳过版本检查继续？"):
             return
     elif ver_status == VersionStatus.PARSE_ERROR:
-        warn(f"Could not parse version string: {ver_str}")
-        if not confirmed("Proceed anyway?"):
+        warn(f"无法解析版本号：{ver_str}")
+        if not confirmed("仍要继续吗？"):
             return
     # VersionStatus.OK —— 无需询问，直接继续
 
@@ -154,21 +154,21 @@ def do_patch(main_js_path, show_search_line=False):
         with open(main_js_path, "r", encoding="utf-8") as f:
             content = f.read()
     except Exception as e:
-        err(f"Read error: {e}")
+        err(f"读取出错：{e}")
         return
 
     current_is_patched = is_already_patched(content)
 
     if current_is_patched:
-        hint("File appears already patched.")
-        if not confirm_with_captcha("Apply main.js patches anyway?"):
+        hint("文件似乎已打过补丁。")
+        if not confirm_with_captcha("仍要应用 main.js 补丁吗？"):
             return
 
     # --- 备份 ---
     backup_path = main_js_path + ".bak"
 
     if not os.path.exists(backup_path) and not current_is_patched:
-        info("Creating backup...")
+        info("正在创建备份……")
         if sys.platform == "darwin":
             app_path = find_app_bundle(main_js_path)
             if app_path:
@@ -177,11 +177,11 @@ def do_patch(main_js_path, show_search_line=False):
         try:
             shutil.copy2(main_js_path, backup_path)
             fix_posix_permissions(backup_path)
-            ok(f"Backup: {os.path.basename(backup_path)} "
+            ok(f"备份：{os.path.basename(backup_path)} "
                f"({format_bytes(file_size(backup_path))})")
         except PermissionError as e:
             if sys.platform == "darwin":
-                warn(f"Permission denied, retrying after removing flags...")
+                warn(f"权限不足，正在移除文件标志后重试……")
                 app_path = find_app_bundle(main_js_path)
                 if app_path:
                     remove_macos_immutable_flags(app_path)
@@ -189,25 +189,25 @@ def do_patch(main_js_path, show_search_line=False):
                 try:
                     shutil.copy2(main_js_path, backup_path)
                     fix_posix_permissions(backup_path)
-                    ok(f"Backup: {os.path.basename(backup_path)} "
+                    ok(f"备份：{os.path.basename(backup_path)} "
                        f"({format_bytes(file_size(backup_path))})")
                 except Exception as e2:
-                    err(f"Backup error: {e2}")
+                    err(f"备份出错：{e2}")
                     return
             else:
-                err(f"Backup error: {e}")
+                err(f"备份出错：{e}")
                 return
         except Exception as e:
-            err(f"Backup error: {e}")
+            err(f"备份出错：{e}")
             return
     elif os.path.exists(backup_path):
-        hint("Backup already exists — skipping")
+        hint("备份已存在 —— 跳过")
     elif current_is_patched:
-        warn("main.js is already patched — no backup needed")
+        warn("main.js 已打过补丁 —— 无需备份")
 
     hash_before = file_hash(main_js_path)
 
-    info("Applying patches...")
+    info("正在应用补丁……")
     print()
 
     new_content, results = apply_patches(content, ag_version=parsed_version)
@@ -220,11 +220,11 @@ def do_patch(main_js_path, show_search_line=False):
     print()
 
     if new_content == content and current_is_patched:
-        ok("File is already patched — no changes needed.")
+        ok("文件已打过补丁 —— 无需改动。")
         return
 
     if applied == 0:
-        err("No patches applied.")
+        err("未应用任何补丁。")
         handle_patch_failure()
         return
 
@@ -239,23 +239,23 @@ def do_patch(main_js_path, show_search_line=False):
         except PermissionError as e:
             if attempt == 0:
                 if sys.platform == "darwin":
-                    warn(f"Permission denied, retrying after removing flags...")
+                    warn(f"权限不足，正在移除文件标志后重试……")
                     app_path = find_app_bundle(main_js_path)
                     if app_path:
                         remove_macos_immutable_flags(app_path)
                         remove_macos_quarantine(app_path)
                     time.sleep(0.5)
                     continue
-                warn(f"Permission denied (file locked): {e}")
-                if confirmed("Would you like to automatically close running Antigravity processes and retry?"):
+                warn(f"权限不足（文件被占用）：{e}")
+                if confirmed("是否自动关闭正在运行的 Antigravity 进程并重试？"):
                     terminate_processes(["Antigravity", "Antigravity IDE", "antigravity", "antigravity-ide"])
                     time.sleep(1.5)
                     continue
-            err(f"Write error (Permission denied): {e}")
+            err(f"写入出错（权限不足）：{e}")
             handle_patch_failure()
             return
         except Exception as e:
-            err(f"Write error: {e}")
+            err(f"写入出错：{e}")
             handle_patch_failure()
             return
 
@@ -264,7 +264,7 @@ def do_patch(main_js_path, show_search_line=False):
         return
 
     # 清理 VS Code 已编译 JS 文件的缓存（CachedData / Code Cache）
-    info("Clearing IDE compile caches...")
+    info("正在清理 IDE 编译缓存……")
     for c in _ide_cache_dirs():
         try:
             if os.path.isdir(c):
@@ -288,7 +288,7 @@ def do_patch(main_js_path, show_search_line=False):
         panel_rows.append(("After", f"{hash_after[:8]}...{hash_after[56:]}"))
     panel_rows.append(("Done", time.strftime('%H:%M:%S')))
     print_panel("PATCH COMPLETE", panel_rows)
-    hint("Restart Antigravity IDE and sign in.")
+    hint("请重启 Antigravity IDE 并登录。")
 
 
 def do_restore(main_js_path, show_search_line=False):
@@ -310,31 +310,31 @@ def do_restore(main_js_path, show_search_line=False):
     backup_path = main_js_path + ".bak"
 
     if not os.path.exists(backup_path):
-        err(f"Backup file not found: {backup_path}")
+        err(f"未找到备份文件：{backup_path}")
         return
     try:
         with open(backup_path, "r", encoding="utf-8") as f:
             data = f.read()
     except Exception as e:
-        err(f"Could not read backup: {e}")
+        err(f"无法读取备份：{e}")
         return
 
     backup_size = file_size(backup_path)
     if backup_size <= 2048:
-        err("Backup looks too small — may be corrupted!")
-        if not confirmed("Restore anyway?"):
-            hint("Restore cancelled.")
+        err("备份文件过小 —— 可能已损坏！")
+        if not confirmed("仍要还原吗？"):
+            hint("已取消还原。")
             return
 
     if is_already_patched(data):
-        warn("Backup itself appears to be patched!")
-        if not confirmed("Restore this patched backup?"):
-            hint("Restore cancelled.")
+        warn("备份本身似乎已被打过补丁！")
+        if not confirmed("是否还原这个已打补丁的备份？"):
+            hint("已取消还原。")
             return
 
-    restore_question = "Restore this backup anyway?" if backup_has_warnings else "Restore backup?"
+    restore_question = "仍要还原这个备份吗？" if backup_has_warnings else "是否从备份还原？"
     if not confirmed(restore_question):
-        hint("Restore cancelled.")
+        hint("已取消还原。")
         return
 
     hash_before = file_hash(main_js_path)
@@ -352,7 +352,7 @@ def do_restore(main_js_path, show_search_line=False):
         fix_posix_permissions(main_js_path)
     except Exception as e:
         if sys.platform == "darwin":
-            warn(f"Restore failed, retrying after removing flags...")
+            warn(f"还原失败，正在移除文件标志后重试……")
             app_path = find_app_bundle(main_js_path)
             if app_path:
                 remove_macos_immutable_flags(app_path)
@@ -364,7 +364,7 @@ def do_restore(main_js_path, show_search_line=False):
                 os.replace(tmp_path, main_js_path)
                 fix_posix_permissions(main_js_path)
             except Exception as e2:
-                err(f"Restore error: {e2}")
+                err(f"还原出错：{e2}")
                 if os.path.exists(tmp_path):
                     try:
                         os.remove(tmp_path)
@@ -372,7 +372,7 @@ def do_restore(main_js_path, show_search_line=False):
                         pass
                 return
         else:
-            err(f"Restore error: {e}")
+            err(f"还原出错：{e}")
             if os.path.exists(tmp_path):
                 try:
                     os.remove(tmp_path)

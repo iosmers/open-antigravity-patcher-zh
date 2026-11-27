@@ -105,12 +105,12 @@ def _make_backup(path):
     if os.path.exists(bak):
         if filecmp.cmp(path, bak, shallow=False):
             return
-        info(f"Backup is stale (extension updated) — refreshing {os.path.basename(path)}{BAK_EXT}")
+        info(f"备份已过期（扩展已更新） —— 正在刷新 {os.path.basename(path)}{BAK_EXT}")
     else:
-        info(f"Creating backup -> {os.path.basename(path)}{BAK_EXT}")
+        info(f"正在创建备份 -> {os.path.basename(path)}{BAK_EXT}")
     shutil.copy2(path, bak)
     fix_posix_permissions(bak)
-    ok(f"Backup: {os.path.basename(bak)} ({format_bytes(file_size(bak))})")
+    ok(f"备份：{os.path.basename(bak)} ({format_bytes(file_size(bak))})")
 
 
 def do_patch_vscode(extension_js_path):
@@ -118,20 +118,20 @@ def do_patch_vscode(extension_js_path):
     from patcher.cli import confirmed
 
     if not extension_js_path or not os.path.isfile(extension_js_path):
-        err("Antigravity VS Code extension.js not found.")
-        hint("Install the 'Google Antigravity' extension in VS Code and run it once.")
+        err("未找到 Antigravity VS Code 的 extension.js。")
+        hint("请在 VS Code 中安装 'Google Antigravity' 扩展并运行一次。")
         return False
 
     path = extension_js_path
-    info(f"Target: {color(path, COLOR_CYAN)}")
-    hint(f"Size: {color(format_bytes(file_size(path)), COLOR_CYAN)}")
+    info(f"目标：{color(path, COLOR_CYAN)}")
+    hint(f"大小：{color(format_bytes(file_size(path)), COLOR_CYAN)}")
     print()
 
     try:
         with open(path, "r", encoding="utf-8") as f:
             content = f.read()
     except Exception as e:
-        err(f"Read error: {e}")
+        err(f"读取出错：{e}")
         handle_patch_failure()
         return False
 
@@ -142,13 +142,13 @@ def do_patch_vscode(extension_js_path):
 
     statuses = [s1, s2]
     if all(s == "not-found" for s in statuses):
-        err("Patch patterns not found in extension.js (unsupported extension version?).")
+        err("在 extension.js 中未找到补丁特征（扩展版本不受支持？）。")
         handle_patch_failure()
         return False
 
     if all(s in ("already", "not-found") for s in statuses) and already:
-        hint("extension.js already patched (both parts).")
-        if not confirmed("Apply patch anyway?"):
+        hint("extension.js 已打过补丁（两部分均已修补）。")
+        if not confirmed("仍要应用补丁吗？"):
             return True
         # 重新打补丁：若存在备份则基于备份重建，否则直接继续
         bak = path + BAK_EXT
@@ -157,7 +157,7 @@ def do_patch_vscode(extension_js_path):
                 with open(bak, "r", encoding="utf-8") as f:
                     new_content = f.read()
             except Exception as e:
-                warn(f"Could not read backup for re-patch: {e}")
+                warn(f"无法读取用于重新打补丁的备份：{e}")
         new_content, s1 = _apply_part1(new_content)
         new_content, s2 = _apply_part2(new_content)
 
@@ -166,20 +166,20 @@ def do_patch_vscode(extension_js_path):
         try:
             _make_backup(path)
         except (PermissionError, OSError) as e:
-            err(f"Backup error: {e}")
-            hint("Close VS Code windows and retry. If installed as root, re-run with sudo.")
+            err(f"备份出错：{e}")
+            hint("请关闭 VS Code 窗口后重试。若以 root 安装，请用 sudo 重新运行。")
             handle_patch_failure()
             return False
         try:
             with open(path, "w", encoding="utf-8", newline="") as f:
                 f.write(new_content)
         except PermissionError as e:
-            err(f"Write error (file locked?): {e}")
-            hint("Close VS Code windows and retry.")
+            err(f"写入出错（文件被占用？）：{e}")
+            hint("请关闭 VS Code 窗口后重试。")
             handle_patch_failure()
             return False
         except Exception as e:
-            err(f"Write error: {e}")
+            err(f"写入出错：{e}")
             handle_patch_failure()
             return False
 
@@ -202,7 +202,7 @@ def do_patch_vscode(extension_js_path):
     panel_rows.append(("Hash", f"{hash_before[:8]}...{hash_before[56:]}" if hash_before else "n/a"))
     print_panel("PATCH COMPLETE" if (changed or already) else "PATCH SKIPPED", panel_rows)
     if changed:
-        hint("Reload VS Code window (Developer: Reload Window) for the change to take effect.")
+        hint("请重新加载 VS Code 窗口（开发者：重新加载窗口）使改动生效。")
     return True
 
 
@@ -213,30 +213,30 @@ def do_restore_vscode(extension_js_path):
     from patcher.cli import confirmed
 
     if not extension_js_path or not os.path.isfile(extension_js_path):
-        err("Antigravity VS Code extension.js not found.")
+        err("未找到 Antigravity VS Code 的 extension.js。")
         return
 
     path = extension_js_path
     bak = path + BAK_EXT
     if not os.path.exists(bak):
-        warn(f"No backup for {os.path.basename(path)} (nothing to restore).")
+        warn(f"以下目标没有备份：{os.path.basename(path)}（无需还原）。")
         return
 
     try:
         with open(path, "r", encoding="utf-8") as f:
             content = f.read()
     except Exception as e:
-        err(f"Read error: {e}")
+        err(f"读取出错：{e}")
         return
 
     if not is_already_patched(content):
-        warn("extension.js is not patched — skipping restore (backup may be a different build).")
-        if not confirmed("Restore from backup anyway?"):
-            hint("Restore cancelled.")
+        warn("extension.js 未打补丁 —— 跳过还原（备份可能是其他构建版本）。")
+        if not confirmed("仍要从备份还原吗？"):
+            hint("已取消还原。")
             return
 
-    if not confirmed("Restore Antigravity VS Code extension.js from backup?"):
-        hint("Restore cancelled.")
+    if not confirmed("是否从备份还原 Antigravity VS Code 的 extension.js？"):
+        hint("已取消还原。")
         return
 
     hash_before = file_hash(path)
@@ -244,11 +244,11 @@ def do_restore_vscode(extension_js_path):
         shutil.copy2(bak, path)
         fix_posix_permissions(path)
     except PermissionError as e:
-        err(f"Restore error (file locked?): {e}")
-        hint("Close VS Code windows and retry.")
+        err(f"还原出错（文件被占用？）：{e}")
+        hint("请关闭 VS Code 窗口后重试。")
         return
     except Exception as e:
-        err(f"Restore error: {e}")
+        err(f"还原出错：{e}")
         return
 
     hash_after = file_hash(path)
@@ -258,7 +258,7 @@ def do_restore_vscode(extension_js_path):
         panel_rows.append(("Before", f"{hash_before[:8]}...{hash_before[56:]}"))
         panel_rows.append(("After", f"{hash_after[:8]}...{hash_after[56:]}"))
     print_panel("RESTORE COMPLETE", panel_rows)
-    hint("Reload VS Code window (Developer: Reload Window) for the change to take effect.")
+    hint("请重新加载 VS Code 窗口（开发者：重新加载窗口）使改动生效。")
 
     # --- 还原 ~/.gemini/bin 中的程序文件（由 agy 补丁器修补） ---
     from patcher.vscode.discovery import find_gemini_antigravity_binary
@@ -267,7 +267,7 @@ def do_restore_vscode(extension_js_path):
     gemini_bin = find_gemini_antigravity_binary()
     if gemini_bin and os.path.exists(gemini_bin + ".agybak"):
         print()
-        info(f"Found patched binary backup: {color(gemini_bin, COLOR_CYAN)}")
+        info(f"已找到已打补丁的程序备份：{color(gemini_bin, COLOR_CYAN)}")
         do_restore_agy(gemini_bin)
     elif gemini_bin:
-        hint(f"Binary {os.path.basename(gemini_bin)} in ~/.gemini/bin has no backup — nothing to restore.")
+        hint(f"程序 {os.path.basename(gemini_bin)}在 ~/.gemini/bin 中没有备份 —— 无需还原。")

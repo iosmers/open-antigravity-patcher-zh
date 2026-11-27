@@ -353,6 +353,11 @@ def show_about():
     print()
     hint("开源许可：")
     print(f"   • GPL-3.0 许可证（署名：{attr_link} / MIT）")
+    print()
+    hint("中文汉化：")
+    zh_repo = link("https://github.com/iosmers/open-antigravity-patcher-zh", "iosmers/open-antigravity-patcher-zh", COLOR_CYAN, COLOR_UNDERLINE)
+    print(f"   • 汉化版仓库：{zh_repo}")
+    print(f"   • 原项目：{color('AvenCores/open-antigravity-patcher', COLOR_YELLOW)}（GPL-3.0）")
 
 
 
@@ -490,9 +495,9 @@ def run_cli():
     # 如果完全没有找到任何目标，则让用户在打开下载页面和手动输入路径之间选择
     if not main_js_path and not manager_path and not agy_path:
         warn("未能自动找到任何已安装的程序。")
-        hint(f"Download URL: {color(DOWNLOAD_URL, COLOR_CYAN)}")
+        hint(f"下载地址：{color(DOWNLOAD_URL, COLOR_CYAN)}")
         print()
-        print_menu_row("1", "Open download page in browser", DOWNLOAD_URL, COLOR_GREEN)
+        print_menu_row("1", "在浏览器中打开下载页面", DOWNLOAD_URL, COLOR_GREEN)
         print_menu_row("2", "指定已安装软件的路径", "手动选择路径", COLOR_CYAN)
         print_menu_row("0", "暂时跳过（进入主菜单）", "", COLOR_YELLOW)
         print()
@@ -634,11 +639,11 @@ def run_cli():
                               vscode_agy_path=vscode_agy_path, show_search_line=searched)
             print()
             if confirmed("是否在浏览器中打开 GitHub 仓库？"):
-                url = "https://github.com/AvenCores/open-antigravity-unlock"
+                url = "https://github.com/iosmers/open-antigravity-patcher-zh"
                 webbrowser.open(url)
                 ok(f"正在打开：{color(url, COLOR_CYAN)}")
             else:
-                cancel("Cancelled.")
+                cancel("已取消。")
         elif choice == "11":
             while True:
                 redraw_main_screen(main_js_path, manager_path, agy_path, vscode_path,
