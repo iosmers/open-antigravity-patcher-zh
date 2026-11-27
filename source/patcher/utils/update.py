@@ -8,11 +8,12 @@ from patcher.constants import VERSION, COLOR_CYAN, COLOR_GREEN, COLOR_YELLOW, CO
 from patcher.utils.console import color, link, info, ok, warn, err, hint, _frame_border, _frame_row
 
 
-GITHUB_REPO = "AvenCores/open-antigravity-patcher"
+GITHUB_REPO = "iosmers/open-antigravity-patcher-zh"
 RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases"
 ISSUES_URL = f"https://github.com/{GITHUB_REPO}/issues"
 API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
-GOIDA_VPN_URL = "https://github.com/AvenCores/goida-vpn-configs"
+# 上游 AvenCores 账号已注销，其 VPN 配置仓库不再可用，改为通用提示。
+UPSTREAM_MIRROR_URL = "https://github.com/trustybird/AvenCores-open-antigravity-patcher"
 
 LAST_UPDATE_RESULT = None
 
@@ -29,18 +30,16 @@ def set_last_update_result(result):
 def print_network_error_warning():
     """当交互式检查更新失败时，打印醒目的警告和 VPN 建议。"""
     warn("无法检查更新（网络错误）。")
-    vpn_link = link(GOIDA_VPN_URL, "goida-vpn-configs", COLOR_CYAN, COLOR_UNDERLINE)
     hint("建议：开启 VPN 以连接 GitHub 并检查更新。")
-    hint(f"免费 VPN 配置：{vpn_link}（AvenCores 自动更新的 V2Ray/VLESS/Hysteria 配置）")
+    hint(f"本仓库发布页：{link(RELEASES_URL, RELEASES_URL, COLOR_CYAN, COLOR_UNDERLINE)}")
 
 
 def print_network_error_banner():
     """当更新检查因网络错误失败时，在主菜单中打印带边框的警告横幅。"""
-    vpn_link = link(GOIDA_VPN_URL, "goida-vpn-configs", COLOR_CYAN, COLOR_UNDERLINE)
     print(f"  {_frame_border('╔', '═', '╗', COLOR_YELLOW)}")
     print(f"  {_frame_row(color('警告：检查更新失败（网络错误）', COLOR_YELLOW, COLOR_BOLD), accent=COLOR_YELLOW)}")
     print(f"  {_frame_row(color('请开启 VPN 以在 GitHub 上检查更新', COLOR_CYAN, COLOR_BOLD), accent=COLOR_YELLOW)}")
-    print(f"  {_frame_row(color(f'免费 VPN 配置：{vpn_link}', COLOR_CYAN), accent=COLOR_YELLOW)}")
+    print(f"  {_frame_row(color('不影响打补丁与还原功能', COLOR_CYAN), accent=COLOR_YELLOW)}")
     print(f"  {_frame_border('╚', '═', '╝', COLOR_YELLOW)}")
     print()
 
@@ -50,6 +49,8 @@ def print_update_status_notice():
     """在主菜单中打印更新提示、已是最新状态，或网络错误警告横幅。"""
     if LAST_UPDATE_RESULT == "network_error":
         print_network_error_banner()
+    elif LAST_UPDATE_RESULT == "no_release":
+        pass  # 本仓库尚未发布 Release，静默跳过，避免误报网络错误
     elif isinstance(LAST_UPDATE_RESULT, tuple) and LAST_UPDATE_RESULT[0] == "update_available":
         _, tag, url = LAST_UPDATE_RESULT
         info(f"发现新版本：{color(tag, COLOR_GREEN, COLOR_BOLD)}（当前：{color(VERSION, COLOR_YELLOW)}）")
@@ -73,7 +74,11 @@ def _parse_version(v):
 
 
 def _fetch_latest_release(timeout=5):
-    """通过 GitHub API 获取最新发布信息。返回 (tag, html_url) 或 (None, None)。"""
+    """通过 GitHub API 获取最新发布信息。
+
+    返回 (tag, html_url)；(None, None) 表示网络错误；
+    ("", "") 表示仓库暂无 Release（HTTP 404）。
+    """
     req = urllib.request.Request(API_URL, headers={
         "Accept": "application/vnd.github.v3+json",
         "User-Agent": f"OpenAGPatcher/{VERSION}",
@@ -84,6 +89,11 @@ def _fetch_latest_release(timeout=5):
             tag = data.get("tag_name", "")
             html_url = data.get("html_url", "")
             return tag, html_url
+    except urllib.error.HTTPError as e:
+        # 404 = 仓库还没有发布任何 Release，属于正常状态，不算网络错误
+        if e.code == 404:
+            return "", ""
+        return None, None
     except Exception:
         return None, None
 
@@ -96,6 +106,13 @@ def check_for_updates(silent=True, timeout=5):
     """
     global LAST_UPDATE_RESULT
     tag, url = _fetch_latest_release(timeout=timeout)
+
+    if tag == "":
+        # 仓库存在但尚无 Release
+        LAST_UPDATE_RESULT = "no_release"
+        if not silent:
+            hint("本仓库尚未发布 Release，跳过更新检查。")
+        return False
 
     if tag is None:
         LAST_UPDATE_RESULT = "network_error"

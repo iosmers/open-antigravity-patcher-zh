@@ -358,6 +358,7 @@ def show_about():
     zh_repo = link("https://github.com/iosmers/open-antigravity-patcher-zh", "iosmers/open-antigravity-patcher-zh", COLOR_CYAN, COLOR_UNDERLINE)
     print(f"   • 汉化版仓库：{zh_repo}")
     print(f"   • 原项目：{color('AvenCores/open-antigravity-patcher', COLOR_YELLOW)}（GPL-3.0）")
+    print(f"   • 原仓库已失效，可参考镜像：{color('trustybird/AvenCores-open-antigravity-patcher', COLOR_YELLOW)}")
 
 
 

@@ -15,24 +15,23 @@
 
 # 🔑 Open AG Patcher
 <p align="center">
-  <a href="https://github.com/AvenCores/open-antigravity-patcher"><img src="https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54" alt="Python"></a>
+  <img src="https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54" alt="Python">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue?style=for-the-badge" alt="GPL-3.0 License"></a>
-  <a href="https://github.com/AvenCores/open-antigravity-patcher/releases/latest"><img src="https://img.shields.io/github/v/release/AvenCores/open-antigravity-patcher?style=for-the-badge" alt="Latest release"></a>
-  <a href="https://github.com/AvenCores/open-antigravity-patcher/stargazers"><img src="https://img.shields.io/github/stars/AvenCores/open-antigravity-patcher?style=for-the-badge" alt="GitHub stars"></a>
-  <img src="https://img.shields.io/github/forks/AvenCores/open-antigravity-patcher?style=for-the-badge" alt="GitHub forks">
-  <a href="https://github.com/AvenCores/open-antigravity-patcher/watchers">
-  <img src="https://img.shields.io/github/watchers/AvenCores/open-antigravity-patcher?style=for-the-badge" alt="GitHub Watchers"></a>
-  <a href="https://github.com/AvenCores/open-antigravity-patcher/releases"><img src="https://img.shields.io/github/downloads/AvenCores/open-antigravity-patcher/total?style=for-the-badge" alt="Downloads"></a>
-  <a href="https://github.com/AvenCores/open-antigravity-patcher/pulls"><img src="https://img.shields.io/github/issues-pr/AvenCores/open-antigravity-patcher?style=for-the-badge" alt="GitHub pull requests"></a>
-  <a href="https://github.com/AvenCores/open-antigravity-patcher/issues"><img src="https://img.shields.io/github/issues/AvenCores/open-antigravity-patcher?style=for-the-badge" alt="GitHub issues"></a>
+  <img src="https://img.shields.io/badge/%E8%AF%AD%E8%A8%80-%E4%B8%AD%E6%96%87-brightgreen?style=for-the-badge" alt="中文">
+  <a href="https://github.com/iosmers/open-antigravity-patcher-zh/stargazers"><img src="https://img.shields.io/github/stars/iosmers/open-antigravity-patcher-zh?style=for-the-badge" alt="GitHub stars"></a>
+  <img src="https://img.shields.io/github/forks/iosmers/open-antigravity-patcher-zh?style=for-the-badge" alt="GitHub forks">
+  <a href="https://github.com/iosmers/open-antigravity-patcher-zh/watchers">
+  <img src="https://img.shields.io/github/watchers/iosmers/open-antigravity-patcher-zh?style=for-the-badge" alt="GitHub Watchers"></a>
+  <a href="https://github.com/iosmers/open-antigravity-patcher-zh/pulls"><img src="https://img.shields.io/github/issues-pr/iosmers/open-antigravity-patcher-zh?style=for-the-badge" alt="GitHub pull requests"></a>
+  <a href="https://github.com/iosmers/open-antigravity-patcher-zh/issues"><img src="https://img.shields.io/github/issues/iosmers/open-antigravity-patcher-zh?style=for-the-badge" alt="GitHub issues"></a>
 </p>
 
 > 🌏 **本仓库是中文汉化版** —— [`iosmers/open-antigravity-patcher-zh`](https://github.com/iosmers/open-antigravity-patcher-zh)
 >
-> - **原项目**：[AvenCores/open-antigravity-patcher](https://github.com/AvenCores/open-antigravity-patcher)（GPL-3.0）
+> - **原作者**：AvenCores（原仓库 `AvenCores/open-antigravity-patcher` 与作者账号均已无法访问）
+> - **现存可参考副本**：[trustybird/AvenCores-open-antigravity-patcher](https://github.com/trustybird/AvenCores-open-antigravity-patcher)（非官方镜像）
 > - **汉化范围**：命令行界面、菜单、提示与错误信息、README 文档；补丁逻辑与上游完全一致。
-> - **徽章说明**：上方徽章统计的是上游原项目的数据。
-> - **反馈建议**：功能性 Bug 请优先参考[上游项目](https://github.com/AvenCores/open-antigravity-patcher)的说明与发布；汉化用词问题可在本仓库提 Issue。
+> - **反馈建议**：功能性 Bug 请参考上述镜像仓库的说明；汉化用词与发布相关问题请在本仓库提 Issue。
 
 面向 Antigravity 2.0、Antigravity IDE、Antigravity CLI 以及 VS Code 的 Google Antigravity 扩展的开源补丁工具：无需 VPN、也无需更换 Google 账号区域即可解除区域限制。它是 [Antigravity IDE 无需 VPN 和更换 Google 账号区域](https://github.com/confeden/Antigravity) 这一工具的开源替代实现。
 
@@ -753,10 +752,11 @@ xcode-select --install
 
 本项目基于 GPL-3.0 许可证发布。许可证全文见 [`LICENSE`](LICENSE) 文件。
 
-- **原作者**：AvenCores —— [AvenCores/open-antigravity-patcher](https://github.com/AvenCores/open-antigravity-patcher)
+- **原作者**：AvenCores（GitHub 账号 @AvenCores 与原仓库 `AvenCores/open-antigravity-patcher` 均已无法访问）
+- **现存参考副本**：[trustybird/AvenCores-open-antigravity-patcher](https://github.com/trustybird/AvenCores-open-antigravity-patcher)（非官方镜像，保留了原始代码与 LICENSE）
 - **中文汉化**：iosmers —— [iosmers/open-antigravity-patcher-zh](https://github.com/iosmers/open-antigravity-patcher-zh)
 
-本汉化版是对上游项目的非官方中文翻译，**未修改任何补丁逻辑**，仅翻译界面文案与文档。依据 GPL-3.0，本仓库同样以 GPL-3.0 发布，并保留原作者的版权与署名。
+本汉化版是对上游项目的非官方中文翻译，**未修改任何补丁逻辑**，仅翻译界面文案与文档，并因上游仓库失效而同步调整了更新检查与链接指向。依据 GPL-3.0，本仓库同样以 GPL-3.0 发布，并保留原作者的版权与署名（见 [`LICENSE`](LICENSE)）。
 
 本项目的部分改动与实现方案参考了仓库 [eligibility-antigravity-patcher](https://github.com/QNIX-Dev/eligibility-antigravity-patcher)（MIT 许可证）的成果。所有集成与修改均保留了原作者版权并注明了出处。
 
